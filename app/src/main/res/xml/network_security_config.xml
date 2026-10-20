@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android can't scope cleartext to an address range, so it is allowed here and narrowed in code:
+  HaClient refuses http:// to anything that isn't a local/private address (Lan.isLocal).
+  Every other request in the app (weather, maps, Claude) is https.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true" />
+</network-security-config>

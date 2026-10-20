@@ -1,0 +1,12 @@
+<!-- Outline car shown until the Home Assistant picture of the car has been downloaded. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="150dp" android:height="44dp" android:viewportWidth="150" android:viewportHeight="44">
+    <path android:pathData="M8,34 L6,26 Q6,21 11,20 L32,16 L46,7 Q49,5 53,5 L98,5 Q103,5 106,8 L116,16 L137,19 Q143,20 144,26 L144,34 Z"
+        android:strokeColor="#FFA3A9B5" android:strokeWidth="1.5" android:strokeLineJoin="round" />
+    <path android:pathData="M51,9 L45,16 L74,16 L74,9 Z M79,9 L79,16 L109,16 L102,9 Z"
+        android:strokeColor="#FFA3A9B5" android:strokeWidth="1.5" android:strokeLineJoin="round" />
+    <path android:pathData="M28,34a8,8 0,1 0,16 0a8,8 0,1 0,-16 0M108,34a8,8 0,1 0,16 0a8,8 0,1 0,-16 0"
+        android:fillColor="#FF15181F" android:strokeColor="#FFA3A9B5" android:strokeWidth="1.5" />
+    <path android:pathData="M33.5,34a2.5,2.5 0,1 0,5 0a2.5,2.5 0,1 0,-5 0M113.5,34a2.5,2.5 0,1 0,5 0a2.5,2.5 0,1 0,-5 0"
+        android:fillColor="#FFA3A9B5" />
+</vector>
