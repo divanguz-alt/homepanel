@@ -124,6 +124,7 @@ private fun Screens(goHome: () -> Unit) {
     val scope = rememberCoroutineScope()
     val store = remember { Settings.get(app) }
 
+    SettingsLanguage.croatian.value = store.language == "hr"
     var page by remember { mutableStateOf(Page.Main) }
     var busy by remember { mutableStateOf(false) }
     var lastRefresh by remember { mutableStateOf<String?>(null) }
@@ -139,13 +140,13 @@ private fun Screens(goHome: () -> Unit) {
         batteryOk = context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
         scope.launch {
             val cal = withContext(Dispatchers.IO) { CalendarSource.load(app) }
-            calendarSummary = if (cal.hasPermission) Summary("${cal.events.size} events in the next ${store.calendarDays} days")
-            else Summary("Tap to allow access", warn = true)
+            calendarSummary = if (cal.hasPermission) Summary(trf("%s events in the next %s days", cal.events.size, store.calendarDays))
+            else Summary(tr("Tap to allow access"), warn = true)
             val ha = withContext(Dispatchers.IO) { HaRepository.cached(app) }
             haSummary = when {
-                !store.ha().isConfigured -> Summary("Not set up", warn = true)
+                !store.ha().isConfigured -> Summary(tr("Not set up"), warn = true)
                 ha.error != null -> Summary(ha.error, warn = true)
-                else -> Summary("Connected · ${ago(ha.carAt)}")
+                else -> Summary(trf("Connected · %s", ago(ha.carAt)))
             }
             weatherSummary = ha.weather?.let { w ->
                 Summary(listOfNotNull(w.source, w.place, w.temperature?.let { "${it.roundToInt()}°" }).joinToString(" · "))
@@ -153,17 +154,17 @@ private fun Screens(goHome: () -> Unit) {
             carSummary = Summary(
                 listOfNotNull(
                     store.carName.ifBlank { null },
-                    ha.car?.locked?.let { if (it) "locked" else "unlocked" },
-                    "${store.mapStyle.replaceFirstChar { it.uppercase() }} map",
+                    ha.car?.locked?.let { if (it) tr("locked") else tr("unlocked") },
+                    trf("%s map", tr(store.mapStyle.replaceFirstChar { it.uppercase() })),
                 ).joinToString(" · "),
                 warn = ha.car?.locked == false,
             )
             val c = withContext(Dispatchers.IO) { ClaudeUsage.cached(app) }
             claudeSummary = when {
-                store.claudeSession.isNullOrBlank() -> Summary("Not signed in", warn = true)
-                c.needsLogin -> Summary("Session expired · sign in again", warn = true)
+                store.claudeSession.isNullOrBlank() -> Summary(tr("Not signed in"), warn = true)
+                c.needsLogin -> Summary(tr("Session expired · sign in again"), warn = true)
                 c.error != null -> Summary(c.error, warn = true)
-                else -> Summary("${c.fiveHour?.roundToInt() ?: "–"}% now · ${c.week?.roundToInt() ?: "–"}% this week")
+                else -> Summary(trf("%s%% now · %s%% this week", c.fiveHour?.roundToInt() ?: "–", c.week?.roundToInt() ?: "–"))
             }
         }
     }
@@ -172,7 +173,7 @@ private fun Screens(goHome: () -> Unit) {
         busy = true
         val n = withContext(Dispatchers.IO) { runCatching { PanelStore.refreshAll(app, forceWeather = true) }.getOrDefault(0) }
         busy = false
-        lastRefresh = if (n == 0) "Saved · no widget on the home screen yet" else "Saved just now"
+        lastRefresh = if (n == 0) tr("Saved · no widget on the home screen yet") else tr("Saved just now")
         reload()
         then()
     }
@@ -197,11 +198,11 @@ private fun Screens(goHome: () -> Unit) {
                 modifier = Modifier.padding(start = 10.dp, top = 72.dp, bottom = 4.dp),
             )
             Text(
-                lastRefresh ?: "Weather, calendar, car and Claude", fontSize = 14.sp, color = Ink3,
+                lastRefresh ?: tr("Weather, calendar, car and Claude"), fontSize = 14.sp, color = Ink3,
                 modifier = Modifier.padding(start = 10.dp, bottom = 28.dp),
             )
         } else {
-            PageHeader(page.title) { page = Page.Main; reload() }
+            PageHeader(tr(page.title)) { page = Page.Main; reload() }
         }
 
         when (page) {
@@ -251,23 +252,23 @@ private fun MainPage(
 ) {
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
         // "Save" stores everything and refreshes the widget; the second one also returns to the home screen.
-        Pill("Save", filled = false, enabled = !busy, modifier = Modifier.weight(1f), onClick = onRefresh)
-        Pill(if (busy) "Saving…" else "Save and go home", filled = true, enabled = !busy, modifier = Modifier.weight(1.4f), onClick = onRefreshAndLeave)
+        Pill(tr("Save"), filled = false, enabled = !busy, modifier = Modifier.weight(1f), onClick = onRefresh)
+        Pill(if (busy) tr("Saving…") else tr("Save and go home"), filled = true, enabled = !busy, modifier = Modifier.weight(1.4f), onClick = onRefreshAndLeave)
     }
     Spacer(Modifier.height(24.dp))
     Grouped {
-        Item("Home Assistant", ha, onClick = { open(Page.HomeAssistant) })
-        Item("Weather", weather, onClick = { open(Page.Weather) })
-        Item("Calendar", calendar, onClick = onCalendar)
-        Item("Car", car, onClick = { open(Page.Car) })
-        Item("Claude", claude, onClick = { open(Page.Claude) }, last = true)
+        Item(tr("Home Assistant"), ha, onClick = { open(Page.HomeAssistant) })
+        Item(tr("Weather"), weather, onClick = { open(Page.Weather) })
+        Item(tr("Calendar"), calendar, onClick = onCalendar)
+        Item(tr("Car"), car, onClick = { open(Page.Car) })
+        Item(tr("Claude"), claude, onClick = { open(Page.Claude) }, last = true)
     }
     Spacer(Modifier.height(16.dp))
     Grouped {
-        Item("Appearance", Summary(if (Settings.get(LocalContext.current).look().designB) "Design B · sizes" else "Design A · sizes"), onClick = { open(Page.Appearance) })
+        Item(tr("Appearance"), Summary(if (Settings.get(LocalContext.current).look().designB) tr("Design B · sizes") else tr("Design A · sizes")), onClick = { open(Page.Appearance) })
         Item(
-            "Background refresh",
-            if (batteryOk) Summary("Unrestricted") else Summary("Optimized by the system · tap to allow", warn = true),
+            tr("Background refresh"),
+            if (batteryOk) Summary(tr("Unrestricted")) else Summary(tr("Optimized by the system · tap to allow"), warn = true),
             onClick = if (batteryOk) null else onBattery,
             last = true,
         )
@@ -280,8 +281,8 @@ private fun MainPage(
             ?.let { "${it.versionName} (${it.longVersionCode})" }.orEmpty()
     }
     Grouped {
-        Item("Updates", Summary("Version $version · check GitHub for a newer one"), onClick = { open(Page.Updates) })
-        Item("Source on GitHub", Summary("divanguz-alt/homepanel"), onClick = {
+        Item(tr("Updates"), Summary(trf("Version %s · check GitHub for a newer one", version)), onClick = { open(Page.Updates) })
+        Item(tr("Source on GitHub"), Summary("divanguz-alt/homepanel"), onClick = {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }, last = true)
     }
@@ -312,13 +313,13 @@ private fun UpdatesPage(store: Settings) {
 
     fun check() {
         busy = true
-        status = Summary("Checking…")
+        status = Summary(tr("Checking…"))
         scope.launch {
             val r = withContext(Dispatchers.IO) { runCatching { updater.latest(store.githubToken.orEmpty()) } }
             r.onSuccess {
                 release = it.takeIf { rel -> rel.versionCode > installed.first }
-                status = if (release != null) Summary("Version ${it.name} is available (%.1f MB)".format(it.size / 1_048_576f))
-                else Summary("You have the latest version (${installed.second})")
+                status = if (release != null) Summary(trf("Version %s is available (%s MB)", it.name, "%.1f".format(it.size / 1_048_576f)))
+                else Summary(trf("You have the latest version (%s)", installed.second))
             }.onFailure { status = Summary(it.message ?: "Check failed", warn = true) }
             busy = false
         }
@@ -326,7 +327,7 @@ private fun UpdatesPage(store: Settings) {
 
     fun downloadAndInstall(rel: hr.divanguz.homepanel.updates.Updater.Release) {
         if (updater.needsInstallPermission(context)) {
-            status = Summary("Allow HomePanel to install apps, then tap again", warn = true)
+            status = Summary(tr("Allow HomePanel to install apps, then tap again"), warn = true)
             context.startActivity(updater.installPermissionIntent(context).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             return
         }
@@ -339,21 +340,21 @@ private fun UpdatesPage(store: Settings) {
             progress = null
             busy = false
             r.onSuccess { updater.install(context, it) }
-                .onFailure { status = Summary(it.message ?: "Download failed", warn = true) }
+                .onFailure { status = Summary(it.message ?: tr("Download failed"), warn = true) }
         }
     }
 
     Grouped {
-        Item("Installed", Summary(installed.second), onClick = null)
+        Item(tr("Installed"), Summary(installed.second), onClick = null)
         Item(
             when {
-                progress != null -> "Downloading… ${((progress ?: 0f) * 100).roundToInt()}%"
-                release != null -> "Download and install ${release!!.name}"
-                else -> "Check for updates"
+                progress != null -> trf("Downloading… %s%%", ((progress ?: 0f) * 100).roundToInt())
+                release != null -> trf("Download and install %s", release!!.name)
+                else -> tr("Check for updates")
             },
             status,
             onClick = when {
-                busy || store.githubToken.isNullOrBlank() -> null
+                busy -> null
                 release != null -> ({ downloadAndInstall(release!!) })
                 else -> ({ check() })
             },
@@ -361,10 +362,10 @@ private fun UpdatesPage(store: Settings) {
         )
     }
     Spacer(Modifier.height(16.dp))
-    SectionLabel("GitHub token")
+    SectionLabel(tr("GitHub token"))
     Grouped(padded = true) {
-        Field("Token (read-only)", token, KeyboardType.Password, secret = true, hint = "github_pat_…") { token = it.trim() }
-        Pill("Save token", filled = false, enabled = token.isNotBlank() && token != store.githubToken, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Field(tr("Token (read-only, optional)"), token, KeyboardType.Password, secret = true, hint = "Only needed if the repository is private") { token = it.trim() }
+        Pill(tr("Save token"), filled = false, enabled = token.isNotBlank() && token != store.githubToken, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
             store.githubToken = token
             status = null
             check()
@@ -372,7 +373,7 @@ private fun UpdatesPage(store: Settings) {
     }
     Spacer(Modifier.height(12.dp))
     Text(
-        if (showHelp) "Hide how to make a token" else "How to make a token",
+        if (showHelp) tr("Hide how to make a token") else tr("How to make a token"),
         color = Accent, fontSize = 15.sp,
         modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { showHelp = !showHelp }.padding(10.dp),
     )
@@ -396,38 +397,38 @@ private fun HomeAssistantPage(store: Settings, onChanged: () -> Unit) {
     var report by remember { mutableStateOf<String?>(null) }
     var testing by remember { mutableStateOf(false) }
 
-    SectionLabel("Connection")
+    SectionLabel(tr("Connection"))
     Grouped(padded = true) {
-        Field("Local address", ha.internalUrl, KeyboardType.Uri, hint = "http:// works only on the home network") { ha = ha.copy(internalUrl = it) }
-        Field("Remote address", ha.externalUrl, KeyboardType.Uri, hint = "Tailscale or Nabu Casa") { ha = ha.copy(externalUrl = it) }
-        Field("Access token", ha.token, KeyboardType.Password, secret = true) { ha = ha.copy(token = it) }
+        Field(tr("Local address"), ha.internalUrl, KeyboardType.Uri, hint = tr("http:// works only on the home network")) { ha = ha.copy(internalUrl = it) }
+        Field(tr("Remote address"), ha.externalUrl, KeyboardType.Uri, hint = tr("Tailscale or Nabu Casa")) { ha = ha.copy(externalUrl = it) }
+        Field(tr("Access token"), ha.token, KeyboardType.Password, secret = true) { ha = ha.copy(token = it) }
     }
     Spacer(Modifier.height(16.dp))
     Grouped {
-        Item("Entities", Summary(if (showEntities) "Hide" else "Weather, car, location and more"), onClick = { showEntities = !showEntities }, last = !showEntities)
+        Item(tr("Entities"), Summary(if (showEntities) tr("Hide") else tr("Weather, car, location and more")), onClick = { showEntities = !showEntities }, last = !showEntities)
         if (showEntities) {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
-                Field("Weather (fallback)", ha.weatherEntity) { ha = ha.copy(weatherEntity = it) }
-                Field("Air quality", ha.aqiEntity, hint = "found by Test") { ha = ha.copy(aqiEntity = it) }
-                Field("Phone location", ha.phoneEntity, hint = "found by Test") { ha = ha.copy(phoneEntity = it) }
-                Field("Car address", ha.carAddressEntity) { ha = ha.copy(carAddressEntity = it) }
-                Field("Range", ha.rangeEntity) { ha = ha.copy(rangeEntity = it) }
-                Field("Range (fallback)", ha.rangeFallbackEntity) { ha = ha.copy(rangeFallbackEntity = it) }
-                Field("Car picture", ha.carImageEntity) { ha = ha.copy(carImageEntity = it) }
-                Field("Car location", ha.locationEntity) { ha = ha.copy(locationEntity = it) }
-                Field("Car lock", ha.lockEntity, hint = "found by Test") { ha = ha.copy(lockEntity = it) }
+                Field(tr("Weather (fallback)"), ha.weatherEntity) { ha = ha.copy(weatherEntity = it) }
+                Field(tr("Air quality"), ha.aqiEntity, hint = tr("found by Test")) { ha = ha.copy(aqiEntity = it) }
+                Field(tr("Phone location"), ha.phoneEntity, hint = tr("found by Test")) { ha = ha.copy(phoneEntity = it) }
+                Field(tr("Car address"), ha.carAddressEntity) { ha = ha.copy(carAddressEntity = it) }
+                Field(tr("Range"), ha.rangeEntity) { ha = ha.copy(rangeEntity = it) }
+                Field(tr("Range (fallback)"), ha.rangeFallbackEntity) { ha = ha.copy(rangeFallbackEntity = it) }
+                Field(tr("Car picture"), ha.carImageEntity) { ha = ha.copy(carImageEntity = it) }
+                Field(tr("Car location"), ha.locationEntity) { ha = ha.copy(locationEntity = it) }
+                Field(tr("Car lock"), ha.lockEntity, hint = tr("found by Test")) { ha = ha.copy(lockEntity = it) }
             }
         }
     }
     Spacer(Modifier.height(20.dp))
     Row(horizontalArrangement = Arrangement.spacedBy(10.dp), modifier = Modifier.fillMaxWidth()) {
-        Pill("Save", filled = false, enabled = !testing, modifier = Modifier.weight(1f)) {
+        Pill(tr("Save"), filled = false, enabled = !testing, modifier = Modifier.weight(1f)) {
             store.saveHa(ha)
             ha = store.ha()
             report = null
             onChanged()
         }
-        Pill(if (testing) "Testing…" else "Save and test", filled = true, enabled = !testing, modifier = Modifier.weight(1.4f)) {
+        Pill(if (testing) tr("Testing…") else tr("Save and test"), filled = true, enabled = !testing, modifier = Modifier.weight(1.4f)) {
             store.saveHa(ha)
             val saved = store.ha()
             testing = true
@@ -467,18 +468,18 @@ private fun WeatherPage(store: Settings, onChanged: () -> Unit) {
                 val s = store.ha()
                 val client = if (s.isConfigured) HaClient(s) else null
                 val at = client?.let { HaRepository.comparePlace(it, s) }
-                    ?: return@withContext "Needs Home Assistant for your location" to emptyMap()
+                    ?: return@withContext tr("Needs Home Assistant for your location") to emptyMap()
                 val rows = HaRepository.compare(app, client, s, at.first, at.second).associate { (p, r) ->
                     p to r.fold(
                         { w ->
                             val tomorrow = w.days.getOrNull(1)?.let { d -> " · tomorrow ${d.high?.roundToInt() ?: "–"}°" }.orEmpty()
                             Summary("${w.temperature?.roundToInt()?.let { "$it°" } ?: "–"} ${Conditions.label(w.condition).lowercase()}$tomorrow")
                         },
-                        { e -> Summary(if (p == WeatherProvider.DHMZ) "Only available in Croatia" else (e.message ?: "Unavailable"), warn = true) },
+                        { e -> Summary(if (p == WeatherProvider.DHMZ) tr("Only available in Croatia") else (e.message ?: tr("Unavailable")), warn = true) },
                     )
                 }
                 val name = HaRepository.cached(app).weather?.place
-                (name?.let { "Now, in $it" } ?: "Now, at your location") to rows
+                (name?.let { trf("Now, in %s", it) } ?: tr("Now, at your location")) to rows
             }
             where = place
             readings = rows
@@ -489,7 +490,7 @@ private fun WeatherPage(store: Settings, onChanged: () -> Unit) {
 
     PhoneLocationSection(store, onChanged = { onChanged(); compare() })
     Spacer(Modifier.height(16.dp))
-    SectionLabel(where ?: "Source")
+    SectionLabel(where ?: tr("Source"))
     Grouped {
         WeatherProvider.entries.forEachIndexed { i, p ->
             Row(
@@ -522,7 +523,7 @@ private fun WeatherPage(store: Settings, onChanged: () -> Unit) {
     }
     Spacer(Modifier.height(12.dp))
     Text(
-        if (comparing) "Checking every source…" else "Check again",
+        if (comparing) tr("Checking every source…") else tr("Check again"),
         color = if (comparing) Ink3 else Accent, fontSize = 15.sp,
         modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable(enabled = !comparing) { compare() }.padding(10.dp),
     )
@@ -534,31 +535,31 @@ private fun WeatherPage(store: Settings, onChanged: () -> Unit) {
     var showSource by remember { mutableStateOf(store.showSource) }
     var showRain by remember { mutableStateOf(store.showRain) }
     Spacer(Modifier.height(16.dp))
-    SectionLabel("Updates")
+    SectionLabel(tr("Updates"))
     Grouped(padded = true) {
-        Choice("Refresh every", listOf(30 to "30 min", 60 to "1 h", 120 to "2 h", 180 to "3 h"), every) {
+        Choice(tr("Refresh every"), listOf(30 to "30 min", 60 to "1 h", 120 to "2 h", 180 to "3 h"), every) {
             every = it; store.weatherEveryMin = it
         }
-        Choice("New forecast after moving", listOf(1 to "1 km", 3 to "3 km", 10 to "10 km"), moveKm) {
+        Choice(tr("New forecast after moving"), listOf(1 to "1 km", 3 to "3 km", 10 to "10 km"), moveKm) {
             moveKm = it; store.weatherMoveKm = it
         }
     }
     Spacer(Modifier.height(16.dp))
-    SectionLabel("Air quality and warnings")
+    SectionLabel(tr("Air quality and warnings"))
     Grouped(padded = true) {
-        Choice("Air quality index", listOf(false to "US AQI", true to "European"), european) {
+        Choice(tr("Air quality index"), listOf(false to tr("US AQI"), true to tr("European")), european) {
             european = it; store.aqiEuropean = it; onChanged()
         }
         ToggleRow(
-            "Official warnings",
-            if (provider == WeatherProvider.DHMZ) "From DHMZ for your county"
-            else "Only with DHMZ as the source (Croatia). Other sources don't publish warnings.",
+            tr("Official warnings"),
+            if (provider == WeatherProvider.DHMZ) tr("From DHMZ for your county")
+            else tr("Only with DHMZ as the source (Croatia). Other sources don't publish warnings."),
             warnings, warn = warnings && provider != WeatherProvider.DHMZ,
         ) { warnings = it; store.warnings = it; onChanged() }
-        ToggleRow("Rain coming soon", "\"Rain from 14:20\" / \"Rain until 15:10\" under the conditions, only when it rains", showRain) {
+        ToggleRow(tr("Rain coming soon"), tr("\"Rain from 14:20\" / \"Rain until 15:10\" under the conditions, only when it rains"), showRain) {
             showRain = it; store.showRain = it; onChanged()
         }
-        ToggleRow("Show source on the widget", "Small grey \"Source: …\" in the weather zone", showSource) {
+        ToggleRow(tr("Show source on the widget"), tr("Small grey \"Source: …\" in the weather zone"), showSource) {
             showSource = it; store.showSource = it; onChanged()
         }
     }
@@ -569,13 +570,13 @@ private fun CalendarPage(store: Settings, onChanged: () -> Unit) {
     val context = LocalContext.current
     var days by remember { mutableStateOf(store.calendarDays) }
     Grouped(padded = true) {
-        Choice("Show events for", listOf(7 to "7 days", 14 to "14 days", 30 to "30 days"), days) {
+        Choice(tr("Show events for"), listOf(7 to tr("7 days"), 14 to tr("14 days"), 30 to tr("30 days")), days) {
             days = it; store.calendarDays = it; onChanged()
         }
     }
     Spacer(Modifier.height(16.dp))
     Grouped {
-        Item("Open calendar", Summary("Your default calendar app"), onClick = {
+        Item(tr("Open calendar"), Summary(tr("Your default calendar app")), onClick = {
             context.startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }, last = true)
     }
@@ -598,33 +599,33 @@ private fun CarPage(store: Settings, onChanged: () -> Unit) {
         onChanged()
     }
     Grouped(padded = true) {
-        Field("Name on the widget", name, hint = "e.g. the model; blank shows \"Car\"") { name = it }
-        Pill("Save name", filled = false, enabled = name != store.carName, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
+        Field(tr("Name on the widget"), name, hint = tr("e.g. the model; blank shows \"Car\"")) { name = it }
+        Pill(tr("Save name"), filled = false, enabled = name != store.carName, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
             store.carName = name
             onChanged()
         }
     }
     Spacer(Modifier.height(16.dp))
-    SectionLabel("From Home Assistant")
+    SectionLabel(tr("From Home Assistant"))
     Grouped {
-        EntityChooser(store, "Parked address", ha.carAddressEntity, listOf("sensor")) { saveHa(ha.copy(carAddressEntity = it)) }
-        EntityChooser(store, "Range", ha.rangeEntity, listOf("sensor")) { saveHa(ha.copy(rangeEntity = it)) }
-        EntityChooser(store, "Range (backup)", ha.rangeFallbackEntity, listOf("sensor")) { saveHa(ha.copy(rangeFallbackEntity = it)) }
-        EntityChooser(store, "Picture", ha.carImageEntity, listOf("image")) { saveHa(ha.copy(carImageEntity = it)) }
-        EntityChooser(store, "Location (for the map)", ha.locationEntity, listOf("device_tracker", "sensor"), last = true) {
+        EntityChooser(store, tr("Parked address"), ha.carAddressEntity, listOf("sensor")) { saveHa(ha.copy(carAddressEntity = it)) }
+        EntityChooser(store, tr("Range"), ha.rangeEntity, listOf("sensor")) { saveHa(ha.copy(rangeEntity = it)) }
+        EntityChooser(store, tr("Range (backup)"), ha.rangeFallbackEntity, listOf("sensor")) { saveHa(ha.copy(rangeFallbackEntity = it)) }
+        EntityChooser(store, tr("Picture"), ha.carImageEntity, listOf("image")) { saveHa(ha.copy(carImageEntity = it)) }
+        EntityChooser(store, tr("Location (for the map)"), ha.locationEntity, listOf("device_tracker", "sensor"), last = true) {
             saveHa(ha.copy(locationEntity = it)); redrawMap()
         }
     }
     Spacer(Modifier.height(16.dp))
-    SectionLabel("Tapping the car opens")
+    SectionLabel(tr("Tapping the car opens"))
     CarAppChooser(store, onChanged)
     Spacer(Modifier.height(16.dp))
-    SectionLabel("Map")
+    SectionLabel(tr("Map"))
     Grouped(padded = true) {
-        Choice("Style", listOf("fiord" to "Fiord", "dark" to "Dark", "positron" to "Light"), style) {
+        Choice(tr("Style"), listOf("fiord" to tr("Fiord"), "dark" to tr("Dark"), "positron" to tr("Light")), style) {
             style = it; store.mapStyle = it; redrawMap()
         }
-        SizeRow("Zoom", zoom, 14f..17.5f, { "%.1f".format(it) }) {
+        SizeRow(tr("Zoom"), zoom, 14f..17.5f, { "%.1f".format(it) }) {
             zoom = it; store.mapZoom = it; redrawMap()
         }
     }
@@ -650,7 +651,7 @@ private fun EntityChooser(
 
     Item(
         title,
-        error?.let { Summary(it, warn = true) } ?: Summary(current.ifBlank { "Not set · tap to choose" }, warn = current.isBlank()),
+        error?.let { Summary(it, warn = true) } ?: Summary(current.ifBlank { tr("Not set · tap to choose") }, warn = current.isBlank()),
         onClick = {
             open = !open
             if (open && options == null) scope.launch {
@@ -658,14 +659,14 @@ private fun EntityChooser(
                 options = withContext(Dispatchers.IO) {
                     if (!s.isConfigured) null else runCatching { HaFetch.entities(HaClient(s), domains) }.getOrNull()
                 }
-                error = if (options == null) "Couldn't reach Home Assistant" else null
+                error = if (options == null) tr("Couldn't reach Home Assistant") else null
             }
         },
         last = last && !open,
     )
     if (open) {
         Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-            Field("Search", query) { query = it }
+            Field(tr("Search"), query) { query = it }
         }
         val shown = options.orEmpty()
             .filter { query.isBlank() || it.entityId.contains(query, true) || it.name.contains(query, true) }
@@ -676,7 +677,7 @@ private fun EntityChooser(
                 open = false
             })
         }
-        if (current.isNotBlank()) Item("Clear", null, onClick = { onPick(""); open = false }, danger = true, last = last)
+        if (current.isNotBlank()) Item(tr("Clear"), null, onClick = { onPick(""); open = false }, danger = true, last = last)
         else if (last) Spacer(Modifier.height(4.dp))
     }
 }
@@ -701,15 +702,15 @@ private fun CarAppChooser(store: Settings, onChanged: () -> Unit) {
     Grouped {
         Item(
             if (chosen.isBlank()) "Home Assistant" else label(chosen),
-            Summary(if (open) "Pick an app below" else "Tap to change"),
+            Summary(if (open) tr("Pick an app below") else tr("Tap to change")),
             onClick = { open = !open },
             last = !open,
         )
         if (open) {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-                Field("Search apps", query) { query = it }
+                Field(tr("Search apps"), query) { query = it }
             }
-            Item("Home Assistant (default)", null, onClick = {
+            Item(tr("Home Assistant (default)"), null, onClick = {
                 store.carApp = ""; chosen = ""; open = false; onChanged()
             })
             apps.filter { query.isBlank() || it.first.contains(query, true) }.take(40).forEachIndexed { i, (name, pkg) ->
@@ -730,16 +731,16 @@ private fun PhoneLocationSection(store: Settings, onChanged: () -> Unit) {
     var searching by remember { mutableStateOf(false) }
     var note by remember { mutableStateOf<String?>(null) }
 
-    SectionLabel("Your location")
+    SectionLabel(tr("Your location"))
     Grouped {
         Item(
-            entity.ifBlank { "Not set" },
-            Summary(if (entity.isBlank()) "Forecast is for home until you pick your phone" else "Forecast follows this tracker", warn = entity.isBlank()),
+            entity.ifBlank { tr("Not set") },
+            Summary(if (entity.isBlank()) tr("Forecast is for home until you pick your phone") else tr("Forecast follows this tracker"), warn = entity.isBlank()),
             onClick = null,
         )
         Item(
-            if (searching) "Searching…" else "Choose from Home Assistant",
-            note?.let { Summary(it, warn = true) } ?: Summary("Trackers that report coordinates"),
+            if (searching) tr("Searching…") else tr("Choose from Home Assistant"),
+            note?.let { Summary(it, warn = true) } ?: Summary(tr("Trackers that report coordinates")),
             onClick = if (searching) null else ({
                 searching = true
                 note = null
@@ -750,8 +751,8 @@ private fun PhoneLocationSection(store: Settings, onChanged: () -> Unit) {
                     }
                     candidates = found
                     note = when {
-                        found == null -> "Couldn't reach Home Assistant"
-                        found.isEmpty() -> "No tracker with coordinates. In the HA app, turn on location sending."
+                        found == null -> tr("Couldn't reach Home Assistant")
+                        found.isEmpty() -> tr("No tracker with coordinates. In the HA app, turn on location sending.")
                         else -> null
                     }
                     searching = false
@@ -793,21 +794,21 @@ private fun LockSection(store: Settings, onChanged: () -> Unit) {
         onChanged()
     }
 
-    SectionLabel("Lock")
+    SectionLabel(tr("Lock"))
     Grouped {
         Item(
-            when (entity) { "" -> "No lock entity"; "none" -> "Padlock hidden"; else -> entity },
+            when (entity) { "" -> tr("No lock entity"); "none" -> tr("Padlock hidden"); else -> entity },
             when {
-                entity == "none" -> Summary("Pick an entity below to show it again")
-                entity.isBlank() -> Summary("The padlock appears once one is chosen", warn = true)
-                locked == true -> Summary("Locked")
-                locked == false -> Summary("Unlocked", warn = true)
-                else -> Summary("State unknown until the next refresh")
+                entity == "none" -> Summary(tr("Pick an entity below to show it again"))
+                entity.isBlank() -> Summary(tr("The padlock appears once one is chosen"), warn = true)
+                locked == true -> Summary(tr("Locked"))
+                locked == false -> Summary(tr("Unlocked"), warn = true)
+                else -> Summary(tr("State unknown until the next refresh"))
             },
             onClick = null,
         )
         Item(
-            if (searching) "Searching…" else "Find locks in Home Assistant",
+            if (searching) tr("Searching…") else tr("Find locks in Home Assistant"),
             note?.let { Summary(it, warn = true) },
             onClick = if (searching) null else ({
                 searching = true
@@ -819,8 +820,8 @@ private fun LockSection(store: Settings, onChanged: () -> Unit) {
                     }
                     candidates = found
                     note = when {
-                        found == null -> "Couldn't reach Home Assistant"
-                        found.isEmpty() -> "Nothing lock-like in Home Assistant"
+                        found == null -> tr("Couldn't reach Home Assistant")
+                        found.isEmpty() -> tr("Nothing lock-like in Home Assistant")
                         else -> null
                     }
                     searching = false
@@ -833,7 +834,7 @@ private fun LockSection(store: Settings, onChanged: () -> Unit) {
         }
         if (entity.isNotBlank() && entity != "none") {
             // "none" (not blank) so automatic detection doesn't bring it back.
-            Item("Don't show a padlock", null, onClick = { choose("none") }, danger = true, last = true)
+            Item(tr("Don't show a padlock"), null, onClick = { choose("none") }, danger = true, last = true)
         }
     }
 }
@@ -855,9 +856,9 @@ private fun ClaudePage(store: Settings, onChanged: () -> Unit) {
             val c = withContext(Dispatchers.IO) { runCatching { PanelStore.refreshClaude(app) }; ClaudeUsage.cached(app) }
             signedIn = !store.claudeSession.isNullOrBlank()
             status = when {
-                c.needsLogin -> Summary("${prefix}Not signed in", warn = true)
+                c.needsLogin -> Summary(prefix + tr("Not signed in"), warn = true)
                 c.error != null -> Summary("$prefix${c.error}", warn = true)
-                else -> Summary("$prefix${c.fiveHour?.roundToInt()}% of the 5-hour limit · ${c.week?.roundToInt()}% of the week")
+                else -> Summary(prefix + trf("%s%% of the 5-hour limit · %s%% of the week", c.fiveHour?.roundToInt(), c.week?.roundToInt()))
             }
             working = false
             onChanged()
@@ -870,20 +871,20 @@ private fun ClaudePage(store: Settings, onChanged: () -> Unit) {
 
     Grouped {
         Item(
-            if (signedIn) "Signed in" else "Sign in",
-            status ?: Summary(if (signedIn) "claude.ai" else "Opens claude.ai", warn = false),
+            if (signedIn) tr("Signed in") else tr("Sign in"),
+            status ?: Summary(if (signedIn) "claude.ai" else tr("Opens claude.ai"), warn = false),
             onClick = { signIn.launch(Intent(context, ClaudeLoginActivity::class.java)) },
         )
-        Item("Fetch usage now", Summary(if (working) "Fetching…" else "Same as tapping the bars on the widget"), onClick = if (working) null else ({ fetch() }))
-        Item("Use a session key", Summary("If signing in here doesn't work"), onClick = { pasting = !pasting }, last = !pasting && !signedIn)
+        Item(tr("Fetch usage now"), Summary(if (working) tr("Fetching…") else tr("Same as tapping the bars on the widget")), onClick = if (working) null else ({ fetch() }))
+        Item(tr("Use a session key"), Summary(tr("If signing in here doesn't work")), onClick = { pasting = !pasting }, last = !pasting && !signedIn)
         if (pasting) {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
                 Text(
-                    "On a computer, sign in at claude.ai and copy the sessionKey cookie (DevTools → Application → Cookies).",
+                    tr("On a computer, sign in at claude.ai and copy the sessionKey cookie (DevTools → Application → Cookies)."),
                     fontSize = 14.sp, color = Ink2,
                 )
                 Field("sessionKey", key, KeyboardType.Password, secret = true) { key = it.trim() }
-                Pill("Use this key", filled = true, enabled = key.startsWith("sk-ant-") && !working, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+                Pill(tr("Use this key"), filled = true, enabled = key.startsWith("sk-ant-") && !working, modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
                     store.clearClaude()
                     store.claudeSession = key
                     key = ""
@@ -893,7 +894,7 @@ private fun ClaudePage(store: Settings, onChanged: () -> Unit) {
             }
         }
         if (signedIn) {
-            Item("Sign out", null, onClick = {
+            Item(tr("Sign out"), null, onClick = {
                 store.clearClaude()
                 CookieManager.getInstance().removeAllCookies(null)
                 signedIn = false
@@ -904,7 +905,7 @@ private fun ClaudePage(store: Settings, onChanged: () -> Unit) {
     }
     Spacer(Modifier.height(12.dp))
     Text(
-        "Usage comes from the page claude.ai uses for its own usage screen. It isn't an official API and may stop working.",
+        tr("Usage comes from the page claude.ai uses for its own usage screen. It isn't an official API and may stop working."),
         fontSize = 13.sp, color = Ink3, modifier = Modifier.padding(horizontal = 10.dp),
     )
 }
@@ -923,16 +924,17 @@ private fun AppearancePage(store: Settings) {
 
     var language by remember { mutableStateOf(store.language) }
     Grouped(padded = true) {
-        Choice("Widget language", listOf("en" to "English", "hr" to "Hrvatski"), language) {
+        Choice(tr("Widget language"), listOf("en" to "English", "hr" to "Hrvatski"), language) {
             language = it
             store.language = it
+            SettingsLanguage.croatian.value = it == "hr"
             scope.launch { withContext(Dispatchers.IO) { runCatching { PanelStore.redraw(app) } } }
         }
     }
     Spacer(Modifier.height(16.dp))
-    SectionLabel("Design")
+    SectionLabel(tr("Design"))
     Grouped {
-        listOf(false to ("A" to "Date line, refresh button, rows with dividers"), true to ("B" to "Bigger weather, grouped calendar, grey map")).forEachIndexed { i, (b, t) ->
+        listOf(false to ("A" to tr("Date line, refresh button, rows with dividers")), true to ("B" to tr("Bigger weather, grouped calendar, grey map"))).forEachIndexed { i, (b, t) ->
             Row(
                 modifier = Modifier.fillMaxWidth().clickable { save(look.copy(designB = b)) }.padding(start = 18.dp, end = 10.dp, top = 12.dp, bottom = 12.dp),
                 verticalAlignment = Alignment.CenterVertically,
@@ -950,7 +952,7 @@ private fun AppearancePage(store: Settings) {
         var showDate by remember { mutableStateOf(store.showDate) }
         Spacer(Modifier.height(16.dp))
         Grouped(padded = true) {
-            ToggleRow("Show date", "Next to the city: \"Split • Tue 20 Oct\"", showDate) {
+            ToggleRow(tr("Show date"), tr("Next to the city: \"Split • Tue 20 Oct\""), showDate) {
                 showDate = it
                 store.showDate = it
                 scope.launch { withContext(Dispatchers.IO) { runCatching { PanelStore.redraw(app) } } }
@@ -958,19 +960,19 @@ private fun AppearancePage(store: Settings) {
         }
     }
     Spacer(Modifier.height(16.dp))
-    SectionLabel("Sizes")
+    SectionLabel(tr("Sizes"))
     Grouped(padded = true) {
-        SizeRow("Date and city", look.header, 0.8f..1.6f, ::pct) { save(look.copy(header = it)) }
+        SizeRow(tr("Date and city"), look.header, 0.8f..1.6f, ::pct) { save(look.copy(header = it)) }
         // Stored in sp (84 = 100%); shown as a percentage like the others.
-        SizeRow("Temperature", look.temperatureSp / 84f, 0.7f..1.7f, ::pct) { save(look.copy(temperatureSp = (it * 84).roundToInt())) }
-        SizeRow("Conditions and AQI", look.conditions, 0.8f..1.6f, ::pct) { save(look.copy(conditions = it)) }
-        SizeRow("Forecast", look.forecast, 0.7f..1.6f, ::pct) { save(look.copy(forecast = it)) }
-        SizeRow("Calendar", look.calendar, 0.8f..1.5f, ::pct) { save(look.copy(calendar = it)) }
-        SizeRow("Car and Claude", look.bottom, 0.8f..1.5f, ::pct) { save(look.copy(bottom = it)) }
+        SizeRow(tr("Temperature"), look.temperatureSp / 84f, 0.7f..1.7f, ::pct) { save(look.copy(temperatureSp = (it * 84).roundToInt())) }
+        SizeRow(tr("Conditions and AQI"), look.conditions, 0.8f..1.6f, ::pct) { save(look.copy(conditions = it)) }
+        SizeRow(tr("Forecast"), look.forecast, 0.7f..1.6f, ::pct) { save(look.copy(forecast = it)) }
+        SizeRow(tr("Calendar"), look.calendar, 0.8f..1.5f, ::pct) { save(look.copy(calendar = it)) }
+        SizeRow(tr("Car and Claude"), look.bottom, 0.8f..1.5f, ::pct) { save(look.copy(bottom = it)) }
     }
     Spacer(Modifier.height(12.dp))
     Text(
-        "Reset sizes", color = Accent, fontSize = 15.sp,
+        tr("Reset sizes"), color = Accent, fontSize = 15.sp,
         modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { save(Look(designB = look.designB)) }.padding(10.dp),
     )
 }
@@ -1141,13 +1143,13 @@ private fun Field(
 }
 
 private fun ago(at: Long): String {
-    if (at <= 0) return "never updated"
+    if (at <= 0) return tr("never updated")
     val min = (System.currentTimeMillis() - at) / 60_000
     return when {
-        min < 1 -> "just now"
-        min < 60 -> "$min min ago"
-        min < 48 * 60 -> "${min / 60} h ago"
-        else -> "${min / (24 * 60)} days ago"
+        min < 1 -> tr("just now")
+        min < 60 -> trf("%s min ago", min)
+        min < 48 * 60 -> trf("%s h ago", min / 60)
+        else -> trf("%s days ago", min / (24 * 60))
     }
 }
 

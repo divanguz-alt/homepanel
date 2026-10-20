@@ -18,8 +18,8 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
- * Updates from the private GitHub repo's releases (published by scripts/release.sh). Needs a
- * fine-grained token with read-only Contents access to that one repo, stored encrypted in Settings.
+ * Updates from the GitHub repo's releases (published by scripts/release.sh). A public repo needs no
+ * token; for a private one, a fine-grained token with read-only Contents access, stored encrypted.
  * Release tags are "v<major>.<n>"; the version code is major * 100 + n (v1.3 → 103, old v0.11 → 11).
  */
 object Updater {
@@ -38,14 +38,15 @@ object Updater {
         val req = Request.Builder()
             .url("https://api.github.com/repos/$REPO/releases/latest")
             .header("Accept", "application/vnd.github+json")
-            .header("Authorization", "Bearer $token")
+            .apply { if (token.isNotBlank()) header("Authorization", "Bearer $token") }
             .header("X-GitHub-Api-Version", "2022-11-28")
             .build()
         val body = http.newCall(req).execute().use { resp ->
             when (resp.code) {
                 200 -> resp.body.string()
                 401 -> throw IOException("GitHub rejected the token")
-                404 -> throw IOException("No release found (or the token can't see the repository)")
+                403 -> throw IOException("GitHub limit reached, try again in an hour")
+                404 -> throw IOException(if (token.isBlank()) "No release found (a private repository needs a token)" else "No release found (or the token can't see the repository)")
                 else -> throw IOException("GitHub HTTP ${resp.code}")
             }
         }
@@ -77,7 +78,7 @@ object Updater {
         val req = Request.Builder()
             .url(release.assetUrl)
             .header("Accept", "application/octet-stream")
-            .header("Authorization", "Bearer $token")
+            .apply { if (token.isNotBlank()) header("Authorization", "Bearer $token") }
             .build()
         http.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) throw IOException("Download failed (HTTP ${resp.code})")

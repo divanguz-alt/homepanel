@@ -112,7 +112,9 @@ class Settings private constructor(private val prefs: SharedPreferences) {
 
     /** European AQI (EAQI) instead of US AQI from Open-Meteo. */
     var aqiEuropean: Boolean
-        get() = prefs.getBoolean(AQI_EUROPEAN, false)
+        // Unless chosen, European for Croatian users (language or phone region), US otherwise.
+        get() = if (prefs.contains(AQI_EUROPEAN)) prefs.getBoolean(AQI_EUROPEAN, false)
+        else language == "hr" || java.util.Locale.getDefault().country == "HR"
         set(v) = prefs.edit().putBoolean(AQI_EUROPEAN, v).apply()
 
     /** Official weather warnings on the widget; only providers that publish them (DHMZ) can. */
