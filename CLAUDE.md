@@ -81,11 +81,11 @@ the device_tracker picked in Weather → Your location (only trackers with coord
 
 - versionCode = 100 + commit count, versionName = "1.<count>" (app/build.gradle.kts); tags "v1.<count>".
 - `scripts/release.sh` (clean, pushed tree): tests, builds the **release** variant (not debuggable),
-  publishes GitHub Release `v1.<count>` on the private repo divanguz-alt/homepanel with
+  publishes GitHub Release `v1.<count>` on the public repo divanguz-alt/homepanel with
   `homepanel-1.<count>.apk`. Run it after each change.
-- Settings → Updates: the user's fine-grained token (read-only Contents on that repo, stored encrypted)
-  checks `releases/latest`, downloads the asset and opens Android's installer (FileProvider,
-  REQUEST_INSTALL_PACKAGES).
+- Settings → Updates: checks the public repo's `releases/latest` (no token; a token stored by older
+  versions is deleted), downloads the asset and opens Android's installer (FileProvider,
+  REQUEST_INSTALL_PACKAGES). 0.x builds can't read 1.x tags, so they need one manual install.
 
 ## Design B
 

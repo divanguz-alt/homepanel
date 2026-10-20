@@ -294,7 +294,7 @@ private fun MainPage(
 
 private const val REPO_URL = "https://github.com/divanguz-alt/homepanel"
 
-/** Check GitHub Releases with the user's read-only token; download and hand the APK to the installer. */
+/** Check the public repo's GitHub Releases; download and hand the APK to the installer. */
 @Composable
 private fun UpdatesPage(store: Settings) {
     val context = LocalContext.current
@@ -303,19 +303,17 @@ private fun UpdatesPage(store: Settings) {
     val installed = remember {
         context.packageManager.getPackageInfo(context.packageName, 0).let { it.longVersionCode.toInt() to (it.versionName ?: "") }
     }
-    var token by remember { mutableStateOf(store.githubToken.orEmpty()) }
     var status by remember { mutableStateOf<Summary?>(null) }
     var release by remember { mutableStateOf<hr.divanguz.homepanel.updates.Updater.Release?>(null) }
     var busy by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf<Float?>(null) }
-    var showHelp by remember { mutableStateOf(store.githubToken.isNullOrBlank()) }
     val updater = hr.divanguz.homepanel.updates.Updater
 
     fun check() {
         busy = true
         status = Summary(tr("Checking…"))
         scope.launch {
-            val r = withContext(Dispatchers.IO) { runCatching { updater.latest(store.githubToken.orEmpty()) } }
+            val r = withContext(Dispatchers.IO) { runCatching { updater.latest() } }
             r.onSuccess {
                 release = it.takeIf { rel -> rel.versionCode > installed.first }
                 status = if (release != null) Summary(trf("Version %s is available (%s MB)", it.name, "%.1f".format(it.size / 1_048_576f)))
@@ -335,7 +333,7 @@ private fun UpdatesPage(store: Settings) {
         progress = 0f
         scope.launch {
             val r = withContext(Dispatchers.IO) {
-                runCatching { updater.download(app, rel, store.githubToken.orEmpty()) { p -> progress = p } }
+                runCatching { updater.download(app, rel) { p -> progress = p } }
             }
             progress = null
             busy = false
@@ -359,30 +357,6 @@ private fun UpdatesPage(store: Settings) {
                 else -> ({ check() })
             },
             last = true,
-        )
-    }
-    Spacer(Modifier.height(16.dp))
-    SectionLabel(tr("GitHub token"))
-    Grouped(padded = true) {
-        Field(tr("Token (read-only, optional)"), token, KeyboardType.Password, secret = true, hint = "Only needed if the repository is private") { token = it.trim() }
-        Pill(tr("Save token"), filled = false, enabled = token.isNotBlank() && token != store.githubToken, modifier = Modifier.fillMaxWidth().padding(vertical = 6.dp)) {
-            store.githubToken = token
-            status = null
-            check()
-        }
-    }
-    Spacer(Modifier.height(12.dp))
-    Text(
-        if (showHelp) tr("Hide how to make a token") else tr("How to make a token"),
-        color = Accent, fontSize = 15.sp,
-        modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { showHelp = !showHelp }.padding(10.dp),
-    )
-    if (showHelp) {
-        Text(
-            "On github.com, signed in as divanguz-alt: Settings → Developer settings → Personal access tokens → " +
-                "Fine-grained tokens → Generate new token. Repository access: Only select repositories → homepanel. " +
-                "Permissions → Repository permissions → Contents: Read-only. Generate, copy the github_pat_… token and paste it above.",
-            fontSize = 14.sp, color = Ink2, lineHeight = 20.sp, modifier = Modifier.padding(horizontal = 10.dp),
         )
     }
 }

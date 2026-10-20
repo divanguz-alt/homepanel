@@ -18,8 +18,7 @@ import java.io.IOException
 import java.util.concurrent.TimeUnit
 
 /**
- * Updates from the GitHub repo's releases (published by scripts/release.sh). A public repo needs no
- * token; for a private one, a fine-grained token with read-only Contents access, stored encrypted.
+ * Updates from the public GitHub repo's releases (published by scripts/release.sh); no sign-in needed.
  * Release tags are "v<major>.<n>"; the version code is major * 100 + n (v1.3 → 103, old v0.11 → 11).
  */
 object Updater {
@@ -34,19 +33,17 @@ object Updater {
     private val json = Json { ignoreUnknownKeys = true }
 
     /** The newest release with an APK attached. */
-    fun latest(token: String): Release {
+    fun latest(): Release {
         val req = Request.Builder()
             .url("https://api.github.com/repos/$REPO/releases/latest")
             .header("Accept", "application/vnd.github+json")
-            .apply { if (token.isNotBlank()) header("Authorization", "Bearer $token") }
             .header("X-GitHub-Api-Version", "2022-11-28")
             .build()
         val body = http.newCall(req).execute().use { resp ->
             when (resp.code) {
                 200 -> resp.body.string()
-                401 -> throw IOException("GitHub rejected the token")
                 403 -> throw IOException("GitHub limit reached, try again in an hour")
-                404 -> throw IOException(if (token.isBlank()) "No release found (a private repository needs a token)" else "No release found (or the token can't see the repository)")
+                404 -> throw IOException("No release found")
                 else -> throw IOException("GitHub HTTP ${resp.code}")
             }
         }
@@ -70,15 +67,14 @@ object Updater {
     }
 
     /** Downloads the APK into the app's cache, reporting progress 0..1. */
-    fun download(context: Context, release: Release, token: String, progress: (Float) -> Unit): File {
+    fun download(context: Context, release: Release, progress: (Float) -> Unit): File {
         val dir = File(context.cacheDir, "updates").apply { mkdirs() }
         dir.listFiles()?.forEach { it.delete() }
         val file = File(dir, "homepanel-${release.name}.apk")
-        // GitHub answers with a redirect to storage; OkHttp drops the token when the host changes.
+        // GitHub answers with a redirect to its file storage.
         val req = Request.Builder()
             .url(release.assetUrl)
             .header("Accept", "application/octet-stream")
-            .apply { if (token.isNotBlank()) header("Authorization", "Bearer $token") }
             .build()
         http.newCall(req).execute().use { resp ->
             if (!resp.isSuccessful) throw IOException("Download failed (HTTP ${resp.code})")

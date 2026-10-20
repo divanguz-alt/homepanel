@@ -181,12 +181,6 @@ internal object SettingsLanguage {
         "Downloading… %s%%" to "Preuzimam… %s%%",
         "Version %s is available (%s MB)" to "Dostupna je verzija %s (%s MB)",
         "You have the latest version (%s)" to "Imaš najnoviju verziju (%s)",
-        "GitHub token" to "GitHub token",
-        "Token (read-only, optional)" to "Token (samo čitanje, opcionalno)",
-        "Only needed if the repository is private" to "Potreban samo ako je repozitorij privatan",
-        "Save token" to "Spremi token",
-        "How to make a token" to "Kako napraviti token",
-        "Hide how to make a token" to "Sakrij upute za token",
     )
 }
 

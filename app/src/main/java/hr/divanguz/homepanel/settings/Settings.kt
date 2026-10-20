@@ -127,11 +127,6 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         get() = prefs.getBoolean(SHOW_RAIN, true)
         set(v) = prefs.edit().putBoolean(SHOW_RAIN, v).apply()
 
-    /** Fine-grained GitHub token (read-only Contents on the repo) for in-app updates. Secret. */
-    var githubToken: String?
-        get() = prefs.getString(GITHUB_TOKEN, null)
-        set(v) = prefs.edit().putString(GITHUB_TOKEN, v?.trim()).apply()
-
     /** Widget language: "en" or "hr". */
     var language: String
         get() = prefs.getString(LANGUAGE, null) ?: "en"
@@ -228,7 +223,10 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         @Volatile private var instance: Settings? = null
 
         fun get(context: Context): Settings = instance ?: synchronized(this) {
-            instance ?: Settings(open(context.applicationContext)).also { instance = it }
+            instance ?: Settings(open(context.applicationContext).also { prefs ->
+                // Updates no longer need a GitHub token (the repo is public); drop any saved one.
+                if (prefs.contains(GITHUB_TOKEN)) prefs.edit().remove(GITHUB_TOKEN).apply()
+            }).also { instance = it }
         }
 
         // security-crypto is deprecated upstream, but CLAUDE.md asks for EncryptedSharedPreferences.
