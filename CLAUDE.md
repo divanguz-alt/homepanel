@@ -99,7 +99,7 @@ the map. In B the city is the invisible settings shortcut; refresh lives in sett
 
 ## Search widget (secondary)
 
-"HomePanel search" (`search/SearchWidget.kt`, `SearchReceiver`): a 4×1 bar in the card colours
+"HomePanel search" (`search/SearchWidget.kt`, `SearchReceiver`): a 4×1 widget with a 50dp pill bar centred in the cell (Firefox's own bar height, by request) in the card colours
 (magnifier, "Search the web" / "Pretraži web" in secondary, mic), replacing Firefox's own search
 widget on the home screen. Text tap sends Firefox the same intent its widget does
 (`org.mozilla.fenix.IntentReceiverActivity` + `open_to_search=search_widget`; channels

@@ -22,6 +22,8 @@ import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxHeight
 import androidx.glance.layout.fillMaxSize
+import androidx.glance.layout.fillMaxWidth
+import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.layout.size
 import androidx.glance.layout.width
@@ -32,7 +34,8 @@ import hr.divanguz.homepanel.settings.Settings
 import hr.divanguz.homepanel.widget.Palette
 import hr.divanguz.homepanel.widget.Texts
 
-private val Radius = 28.dp
+private val BarHeight = 50.dp
+private val Radius = BarHeight / 2
 
 /** Secondary widget: a search bar in the panel's colours that opens Firefox's search. */
 class SearchWidget : GlanceAppWidget() {
@@ -54,39 +57,43 @@ class SearchReceiver : GlanceAppWidgetReceiver() {
 private fun SearchBar(context: Context) {
     val texts = Texts.of(Settings.get(context).language)
     val tint = ColorFilter.tint(Palette.ink2P)
-    // Hairline border faked with an outer box, as on the panel.
-    Box(
-        modifier = GlanceModifier
-            .fillMaxSize()
-            .background(Palette.hair)
-            .cornerRadius(Radius)
-            .padding(1.dp),
-    ) {
-        Row(
+    // Same size as Firefox's own bar: 50dp high, centred in the cell, full width.
+    Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+        // Hairline border faked with an outer box, as on the panel.
+        Box(
             modifier = GlanceModifier
-                .fillMaxSize()
-                .background(Palette.card)
-                .cornerRadius(Radius - 1.dp)
-                .clickable(actionStartActivity(Firefox.searchIntent(context)))
-                .padding(start = 20.dp, end = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
+                .fillMaxWidth()
+                .height(BarHeight)
+                .background(Palette.hair)
+                .cornerRadius(Radius)
+                .padding(1.dp),
         ) {
-            Image(ImageProvider(R.drawable.ic_search), null, GlanceModifier.size(20.dp), colorFilter = tint)
-            Spacer(GlanceModifier.width(14.dp))
-            Text(
-                texts.searchWeb,
-                style = TextStyle(color = Palette.ink2P, fontSize = 15.sp),
-                maxLines = 1,
-                modifier = GlanceModifier.defaultWeight(),
-            )
-            Box(
+            Row(
                 modifier = GlanceModifier
-                    .fillMaxHeight()
-                    .padding(horizontal = 12.dp)
-                    .clickable(actionStartActivity(Intent(context, VoiceSearchActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))),
-                contentAlignment = Alignment.Center,
+                    .fillMaxSize()
+                    .background(Palette.card)
+                    .cornerRadius(Radius - 1.dp)
+                    .clickable(actionStartActivity(Firefox.searchIntent(context)))
+                    .padding(start = 18.dp, end = 1.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Image(ImageProvider(R.drawable.ic_mic), null, GlanceModifier.size(20.dp), colorFilter = tint)
+                Image(ImageProvider(R.drawable.ic_search), null, GlanceModifier.size(20.dp), colorFilter = tint)
+                Spacer(GlanceModifier.width(14.dp))
+                Text(
+                    texts.searchWeb,
+                    style = TextStyle(color = Palette.ink2P, fontSize = 15.sp),
+                    maxLines = 1,
+                    modifier = GlanceModifier.defaultWeight(),
+                )
+                Box(
+                    modifier = GlanceModifier
+                        .fillMaxHeight()
+                        .width(48.dp)
+                        .clickable(actionStartActivity(Intent(context, VoiceSearchActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Image(ImageProvider(R.drawable.ic_mic), null, GlanceModifier.size(20.dp), colorFilter = tint)
+                }
             }
         }
     }

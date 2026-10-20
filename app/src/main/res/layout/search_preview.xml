@@ -2,12 +2,13 @@
 <!-- Picker preview of the search bar. -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="56dp"
+    android:layout_height="50dp"
     android:layout_gravity="center_vertical"
     android:background="@drawable/preview_card"
     android:gravity="center_vertical"
     android:orientation="horizontal"
-    android:paddingHorizontal="20dp">
+    android:paddingStart="18dp"
+    android:paddingEnd="15dp">
 
     <ImageView
         android:layout_width="20dp"
