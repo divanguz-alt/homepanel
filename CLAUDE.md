@@ -71,6 +71,9 @@ the device_tracker picked in Weather → Your location (only trackers with coord
 ## Build, sign, test
 
 - Build: `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:assembleDebug`
+- The project lives in a OneDrive folder; build output goes to `HOMEPANEL_BUILD_DIR`
+  (`~/Library/Caches/HomePanel-build`, set in `~/.gradle/gradle.properties`) so OneDrive doesn't sync it.
+  APKs are under `$HOMEPANEL_BUILD_DIR/app/outputs/apk/…`.
 - Tests (JVM, offline, parsers and formatting): `./gradlew :app:testDebugUnitTest`. XML parsing goes
   through `XmlParsers.factory` so tests can use kxml2; keep new parsers separate from network calls.
 - Signing: debug and release are signed with the key at `HOMEPANEL_KEYSTORE` from
