@@ -71,8 +71,8 @@ the device_tracker picked in Weather → Your location (only trackers with coord
 ## Build, sign, test
 
 - Build: `JAVA_HOME="/Applications/Android Studio.app/Contents/jbr/Contents/Home" ./gradlew :app:assembleDebug`
-- The project lives in a OneDrive folder; build output goes to `HOMEPANEL_BUILD_DIR`
-  (`~/Library/Caches/HomePanel-build`, set in `~/.gradle/gradle.properties`) so OneDrive doesn't sync it.
+- Build output goes to `HOMEPANEL_BUILD_DIR` (`~/Library/Caches/HomePanel-build`, set in
+  `~/.gradle/gradle.properties`), outside the project folder.
   APKs are under `$HOMEPANEL_BUILD_DIR/app/outputs/apk/…`.
 - Tests (JVM, offline, parsers and formatting): `./gradlew :app:testDebugUnitTest`. XML parsing goes
   through `XmlParsers.factory` so tests can use kxml2; keep new parsers separate from network calls.
@@ -119,7 +119,7 @@ to Firefox. No Firefox → default browser.
 | Car range | range sensor + optional backup sensor, picked in Car settings (show `unit_of_measurement`) | same as car |
 | Car image | `image.*` entity picked in Car settings: read `entity_picture` from `/api/states/…`, download it with the bearer token, downscale to ≤ 600px wide, cache on disk, re-download only when the entity's `last_updated` changes | same as car |
 | Car map (cell background) | lat/lon from the car location entity picked in Car settings; OpenFreeMap `fiord` style rendered with MapLibre's snapshotter (no key; CARTO now requires one; attribution drawn in the corner), blurred + darkened under the text, sharp pin with the render on the right; re-rendered only when the parked address changes | same as car |
-| Claude usage | same approach as github.com/utaysi/claude-usage-widget (see below) | "Claude usage" title launches Claude `com.anthropic.claude`; tapping the bars refreshes usage now (user request); signed out → opens the sign-in WebView |
+| Claude usage | same approach as github.com/utaysi/claude-usage-widget (see below) | "Claude usage" title launches Claude `com.anthropic.claude`; tapping the bars refreshes usage now (user request; the fetch runs in an expedited WorkManager job, since a widget action is stopped after ~10 s; a failed fetch shows "not updated · tap to retry"); signed out → opens the sign-in WebView |
 
 Verify the package names on the device with `adb shell pm list packages | grep -i <name>` before
 hard-coding; fall back gracefully (no crash) if a package is missing.

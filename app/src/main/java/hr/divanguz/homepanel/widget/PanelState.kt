@@ -72,6 +72,8 @@ data class ClaudeState(
     /** A tap-triggered refresh is running. */
     val busy: Boolean,
     val stale: Boolean,
+    /** The last fetch failed (network, Cloudflare, endpoint change); the numbers are from before. */
+    val failed: Boolean = false,
 )
 
 data class PanelState(
@@ -157,6 +159,7 @@ fun panelState(
             needsLogin = claude == null || claude.needsLogin,
             busy = claudeBusy,
             stale = claude != null && claude.hasData && stale(claude.fetchedAt),
+            failed = claude != null && claude.hasData && !claude.needsLogin && claude.error != null,
         ),
     )
 }

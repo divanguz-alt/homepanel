@@ -37,6 +37,8 @@ data class Texts(
     val resetsNow: String,
     val updating: String,
     val signedOut: String,
+    /** The last fetch failed; the numbers shown are older. */
+    val notUpdated: String,
     val tapToSignIn: String,
     val toShowUsage: String,
     /** Car label when no name is set. */
@@ -87,6 +89,7 @@ data class Texts(
             resetsNow = "resets now",
             updating = "updating…",
             signedOut = "signed out · tap to sign in",
+            notUpdated = "not updated · tap to retry",
             tapToSignIn = "Tap to sign in",
             toShowUsage = "to show your plan usage",
             car = "Car",
@@ -131,6 +134,7 @@ data class Texts(
             resetsNow = "reset upravo",
             updating = "osvježavam…",
             signedOut = "odjavljeno · dodirni za prijavu",
+            notUpdated = "nije osvježeno · dodirni opet",
             tapToSignIn = "Dodirni za prijavu",
             toShowUsage = "za prikaz potrošnje",
             car = "Auto",

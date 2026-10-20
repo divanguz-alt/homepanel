@@ -7,6 +7,7 @@ import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
+import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
@@ -42,11 +43,20 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
     }
 }
 
+/** Claude usage only, started by a tap on the widget's bars. */
+class ClaudeWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
+    override suspend fun doWork(): Result {
+        PanelStore.refreshClaude(applicationContext)
+        return Result.success()
+    }
+}
+
 object Refresh {
     private const val PERIODIC = "panel-periodic"
     private const val CALENDAR = "panel-calendar-observer"
     private const val MIDNIGHT = "panel-midnight"
     private const val NOW = "panel-now"
+    private const val CLAUDE_NOW = "panel-claude-now"
 
     /** Idempotent: safe to call from the receiver, the app and after permission changes. */
     fun ensureScheduled(context: Context) {
@@ -66,12 +76,22 @@ object Refresh {
         )
     }
 
+    /** Expedited so it starts at once; falls back to normal work when the quota is used up. */
+    fun claudeNow(context: Context) {
+        WorkManager.getInstance(context).enqueueUniqueWork(
+            CLAUDE_NOW, ExistingWorkPolicy.KEEP,
+            OneTimeWorkRequestBuilder<ClaudeWorker>()
+                .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
+                .build(),
+        )
+    }
+
     /** The clock or zone moved, so the pending midnight job points at the wrong time. */
     fun rescheduleMidnight(context: Context) = enqueueMidnight(context, ExistingWorkPolicy.REPLACE)
 
     fun cancelAll(context: Context) {
         val wm = WorkManager.getInstance(context)
-        listOf(PERIODIC, CALENDAR, MIDNIGHT, NOW).forEach(wm::cancelUniqueWork)
+        listOf(PERIODIC, CALENDAR, MIDNIGHT, NOW, CLAUDE_NOW).forEach(wm::cancelUniqueWork)
     }
 
     internal fun enqueueCalendarObserver(context: Context, policy: ExistingWorkPolicy) {

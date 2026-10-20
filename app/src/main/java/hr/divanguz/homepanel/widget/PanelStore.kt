@@ -43,21 +43,31 @@ object PanelStore {
 
     private fun claudeJson(s: ClaudeSnapshot) = json.encodeToString(ClaudeSnapshot.serializer(), s)
 
-    /** Refreshes only Claude usage, showing "updating…" on the widget meanwhile. */
-    suspend fun refreshClaude(context: Context) {
+    /** Shows "updating…" on every widget right away, before the fetch starts. */
+    suspend fun markClaudeBusy(context: Context) {
         val widget = HomePanelWidget()
-        val ids = GlanceAppWidgetManager(context).getGlanceIds(HomePanelWidget::class.java)
-        for (id in ids) {
+        for (id in GlanceAppWidgetManager(context).getGlanceIds(HomePanelWidget::class.java)) {
             updateAppWidgetState(context, id) { it[CLAUDE_BUSY] = true }
             widget.update(context, id)
         }
-        val snapshot = runCatching { ClaudeUsage.refresh(context) }.getOrElse { ClaudeUsage.cached(context) }
-        for (id in ids) {
-            updateAppWidgetState(context, id) {
-                it[CLAUDE] = claudeJson(snapshot)
-                it[CLAUDE_BUSY] = false
+    }
+
+    /** Refreshes only Claude usage, showing "updating…" on the widget meanwhile. */
+    suspend fun refreshClaude(context: Context) {
+        markClaudeBusy(context)
+        val widget = HomePanelWidget()
+        val ids = GlanceAppWidgetManager(context).getGlanceIds(HomePanelWidget::class.java)
+        try {
+            val snapshot = runCatching { ClaudeUsage.refresh(context) }
+                .onFailure { Log.e("HomePanel", "Claude refresh failed", it) }
+                .getOrElse { ClaudeUsage.cached(context).copy(error = it.message ?: "failed") }
+            for (id in ids) updateAppWidgetState(context, id) { it[CLAUDE] = claudeJson(snapshot) }
+        } finally {
+            // Always clear "updating…", or a killed fetch would leave it on for good.
+            for (id in ids) {
+                updateAppWidgetState(context, id) { it[CLAUDE_BUSY] = false }
+                widget.update(context, id)
             }
-            widget.update(context, id)
         }
     }
 

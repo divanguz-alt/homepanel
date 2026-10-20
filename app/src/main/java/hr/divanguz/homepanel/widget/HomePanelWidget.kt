@@ -526,7 +526,7 @@ private fun ClaudeZone(claude: ClaudeState, context: Context, modifier: GlanceMo
                     if (claude.needsLogin) it.opens(signIn) else it.clickable(actionRunCallback<ClaudeRefreshAction>())
                 },
             ) {
-                Usage(claude.fiveHour, LocalTexts.current.fiveHours, barWidth, claude)
+                Usage(claude.fiveHour, LocalTexts.current.fiveHours, barWidth, claude, showFailure = true)
                 Spacer(GlanceModifier.height(dz(8, k)))
                 Usage(claude.week, LocalTexts.current.week, barWidth, claude)
             }
@@ -536,7 +536,7 @@ private fun ClaudeZone(claude: ClaudeState, context: Context, modifier: GlanceMo
 
 // Its own Column: Glance renders at most 10 children per Row/Column and drops the rest.
 @Composable
-private fun Usage(line: UsageLine?, label: String, barWidth: Dp, claude: ClaudeState) = Column(modifier = GlanceModifier.fillMaxWidth()) {
+private fun Usage(line: UsageLine?, label: String, barWidth: Dp, claude: ClaudeState, showFailure: Boolean = false) = Column(modifier = GlanceModifier.fillMaxWidth()) {
     val k = LocalLook.current.bottom
     val percent = line?.percent
     val value = if (claude.stale) Palette.ink3P else Palette.inkP
@@ -567,6 +567,7 @@ private fun Usage(line: UsageLine?, label: String, barWidth: Dp, claude: ClaudeS
     val note = when {
         claude.busy -> LocalTexts.current.updating
         claude.needsLogin -> LocalTexts.current.signedOut
+        showFailure && claude.failed -> LocalTexts.current.notUpdated
         else -> line?.resets.orEmpty()
     }
     Label(note, sz(13, k), Palette.ink3P)
