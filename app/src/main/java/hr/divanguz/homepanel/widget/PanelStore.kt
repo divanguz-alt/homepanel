@@ -10,10 +10,12 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
+import androidx.glance.appwidget.updateAll
 import hr.divanguz.homepanel.calendar.CalendarSnapshot
 import hr.divanguz.homepanel.calendar.CalendarSource
 import hr.divanguz.homepanel.claude.ClaudeSnapshot
 import hr.divanguz.homepanel.claude.ClaudeUsage
+import hr.divanguz.homepanel.search.SearchWidget
 import hr.divanguz.homepanel.ha.HaRepository
 import hr.divanguz.homepanel.ha.HaSnapshot
 import kotlinx.serialization.json.Json
@@ -73,6 +75,8 @@ object PanelStore {
             updateAppWidgetState(context, id) { it[REDRAW] = now }
             widget.update(context, id)
         }
+        // The search bar has no data, only the language can change.
+        SearchWidget().updateAll(context)
     }
 
     /** Seeds a freshly placed widget from the calendar and the last cached HA values. */

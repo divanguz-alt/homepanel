@@ -3,4 +3,6 @@
     <string name="app_name">HomePanel</string>
     <string name="widget_name">HomePanel</string>
     <string name="widget_description">Weather, calendar, car and Claude usage in one panel</string>
+    <string name="search_widget_name">HomePanel search</string>
+    <string name="search_widget_description">Search bar that opens Firefox search, styled like the panel</string>
 </resources>

@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import androidx.glance.appwidget.GlanceAppWidgetManager
+import hr.divanguz.homepanel.search.SearchReceiver
 import hr.divanguz.homepanel.calendar.CalEvent
 import hr.divanguz.homepanel.calendar.CalendarSnapshot
 import hr.divanguz.homepanel.calendar.CalendarSource
@@ -40,10 +41,13 @@ object Preview {
         // Debug builds keep versionCode 1, so key on the install time instead.
         val version = context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
         if (prefs.getLong("preview_version", -1) == version) return
-        val result = runCatching { GlanceAppWidgetManager(context).setWidgetPreviews(HomePanelReceiver::class) }
-            .onFailure { Log.w("HomePanel", "Widget preview not published", it) }
-            .getOrNull()
-        if (result == GlanceAppWidgetManager.SET_WIDGET_PREVIEWS_RESULT_SUCCESS) {
+        val manager = GlanceAppWidgetManager(context)
+        val results = listOf(HomePanelReceiver::class, SearchReceiver::class).map { receiver ->
+            runCatching { manager.setWidgetPreviews(receiver) }
+                .onFailure { Log.w("HomePanel", "Widget preview not published", it) }
+                .getOrNull()
+        }
+        if (results.all { it == GlanceAppWidgetManager.SET_WIDGET_PREVIEWS_RESULT_SUCCESS }) {
             prefs.edit().putLong("preview_version", version).apply()
         }
     }

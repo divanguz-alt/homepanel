@@ -41,6 +41,8 @@ data class Texts(
     val toShowUsage: String,
     /** Car label when no name is set. */
     val car: String,
+    /** Search widget hint. */
+    val searchWeb: String,
 ) {
     /** HA condition name → words; unknown ones are prettified. */
     fun condition(key: String): String =
@@ -88,6 +90,7 @@ data class Texts(
             tapToSignIn = "Tap to sign in",
             toShowUsage = "to show your plan usage",
             car = "Car",
+            searchWeb = "Search the web",
         )
 
         val HR = Texts(
@@ -131,6 +134,7 @@ data class Texts(
             tapToSignIn = "Dodirni za prijavu",
             toShowUsage = "za prikaz potrošnje",
             car = "Auto",
+            searchWeb = "Pretraži web",
         )
 
         fun of(language: String): Texts = if (language == "hr") HR else EN

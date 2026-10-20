@@ -22,6 +22,10 @@ uses the phone's system font, so it follows your font setting (on Samsung, the O
 Two designs (A and B), English or Croatian, adjustable text sizes, and layouts that adapt when the
 widget is resized.
 
+A second, small widget, **HomePanel search**, is a search bar in the same colours: tapping it opens
+Firefox's search (as Firefox's own widget does), the mic dictates a search for Firefox. Without
+Firefox it opens the default browser.
+
 ## Install
 
 1. Download the latest `homepanel-*.apk` from [Releases](../../releases).

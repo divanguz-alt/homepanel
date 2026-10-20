@@ -97,6 +97,16 @@ karta"). Code: `widget/DesignB.kt` (weather and calendar zones); the bottom grid
 uses the grey map variant (`car_map_grey.png`, rendered with the colour one) and `#A2A4AB` text on
 the map. In B the city is the invisible settings shortcut; refresh lives in settings and the Claude bars.
 
+## Search widget (secondary)
+
+"HomePanel search" (`search/SearchWidget.kt`, `SearchReceiver`): a 4×1 bar in the card colours
+(magnifier, "Search the web" / "Pretraži web" in secondary, mic), replacing Firefox's own search
+widget on the home screen. Text tap sends Firefox the same intent its widget does
+(`org.mozilla.fenix.IntentReceiverActivity` + `open_to_search=search_widget`; channels
+firefox/firefox_beta/fenix). Firefox's voice activity isn't exported, so the mic opens
+`VoiceSearchActivity` (invisible, Android speech prompt) and sends the words as `ACTION_WEB_SEARCH`
+to Firefox. No Firefox → default browser.
+
 ## Data sources
 
 | Zone | Source | Tap action |
