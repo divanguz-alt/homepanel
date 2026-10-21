@@ -558,8 +558,10 @@ private fun Usage(line: UsageLine?, label: String, barWidth: Dp, claude: ClaudeS
     ) {
         Row(modifier = GlanceModifier.fillMaxSize()) {
             Spacer(GlanceModifier.width(fill))
+            // Weight, not an exact width: the two dp widths round to pixels separately and could
+            // leave a sliver of red showing at the end.
             if (track - fill > 0.dp) {
-                Box(modifier = GlanceModifier.width(track - fill).height(dz(6, k)).background(Palette.track)) {}
+                Box(modifier = GlanceModifier.defaultWeight().height(dz(6, k)).background(Palette.track)) {}
             }
         }
     }
