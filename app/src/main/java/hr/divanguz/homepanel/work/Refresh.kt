@@ -9,8 +9,10 @@ import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.OutOfQuotaPolicy
 import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkInfo
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
+import hr.divanguz.homepanel.claude.ClaudeUsage
 import hr.divanguz.homepanel.widget.PanelStore
 import java.time.Duration
 import java.time.LocalDate
@@ -46,7 +48,11 @@ class RefreshWorker(context: Context, params: WorkerParameters) : CoroutineWorke
 /** Claude usage only, started by a tap on the widget's bars. */
 class ClaudeWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
-        PanelStore.refreshClaude(applicationContext)
+        val c = applicationContext
+        hr.divanguz.homepanel.claude.TapLog.mark(c, hr.divanguz.homepanel.claude.TapLog.STARTED)
+        val result = runCatching { PanelStore.refreshClaude(c) }
+            .fold({ ClaudeUsage.cached(c).let { s -> if (s.needsLogin) "signed out" else s.error ?: "ok" } }, { it.message ?: "failed" })
+        hr.divanguz.homepanel.claude.TapLog.finished(c, result)
         return Result.success()
     }
 }
@@ -76,10 +82,19 @@ object Refresh {
         )
     }
 
-    /** Expedited so it starts at once; falls back to normal work when the quota is used up. */
+    /**
+     * Expedited so it starts at once; falls back to normal work when the quota is used up. A fetch
+     * already running is left alone, but one that is only waiting (deferred by the system) is
+     * replaced: with KEEP a deferred job swallowed every later tap.
+     */
     fun claudeNow(context: Context) {
-        WorkManager.getInstance(context).enqueueUniqueWork(
-            CLAUDE_NOW, ExistingWorkPolicy.KEEP,
+        val wm = WorkManager.getInstance(context)
+        val running = runCatching {
+            wm.getWorkInfosForUniqueWork(CLAUDE_NOW).get().any { it.state == WorkInfo.State.RUNNING }
+        }.getOrDefault(false)
+        if (running) return
+        wm.enqueueUniqueWork(
+            CLAUDE_NOW, ExistingWorkPolicy.REPLACE,
             OneTimeWorkRequestBuilder<ClaudeWorker>()
                 .setExpedited(OutOfQuotaPolicy.RUN_AS_NON_EXPEDITED_WORK_REQUEST)
                 .build(),

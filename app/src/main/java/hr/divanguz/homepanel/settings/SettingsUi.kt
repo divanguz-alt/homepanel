@@ -69,6 +69,7 @@ import androidx.lifecycle.compose.LifecycleEventEffect
 import hr.divanguz.homepanel.calendar.CalendarSource
 import hr.divanguz.homepanel.claude.ClaudeLoginActivity
 import hr.divanguz.homepanel.claude.ClaudeUsage
+import hr.divanguz.homepanel.claude.TapLog
 import hr.divanguz.homepanel.ha.CarImage
 import hr.divanguz.homepanel.ha.CarMap
 import hr.divanguz.homepanel.ha.HaClient
@@ -813,6 +814,20 @@ private fun LockSection(store: Settings, onChanged: () -> Unit) {
     }
 }
 
+/** "14:02 tap · started 14:02 · done 14:03: ok", or where it stopped. */
+private fun tapSummary(e: TapLog.Entry): Summary {
+    val f = java.time.format.DateTimeFormatter.ofPattern("d.M. HH:mm:ss")
+    fun t(ms: Long) = java.time.Instant.ofEpochMilli(ms).atZone(java.time.ZoneId.systemDefault()).format(f)
+    val parts = mutableListOf(trf("tapped %s", t(e.tapped)))
+    parts += when {
+        e.finished != 0L -> trf("done %s: %s", t(e.finished), e.result ?: "?")
+        e.started != 0L -> trf("started %s, not finished", t(e.started))
+        e.queued != 0L -> tr("queued, not started yet")
+        else -> tr("not queued")
+    }
+    return Summary(parts.joinToString(" · "), warn = e.finished == 0L || e.result != "ok")
+}
+
 @Composable
 private fun ClaudePage(store: Settings, onChanged: () -> Unit) {
     val context = LocalContext.current
@@ -850,6 +865,7 @@ private fun ClaudePage(store: Settings, onChanged: () -> Unit) {
             onClick = { signIn.launch(Intent(context, ClaudeLoginActivity::class.java)) },
         )
         Item(tr("Fetch usage now"), Summary(if (working) tr("Fetching…") else tr("Same as tapping the bars on the widget")), onClick = if (working) null else ({ fetch() }))
+        TapLog.read(app)?.let { Item(tr("Last tap on the widget"), tapSummary(it), onClick = null) }
         Item(tr("Use a session key"), Summary(tr("If signing in here doesn't work")), onClick = { pasting = !pasting }, last = !pasting && !signedIn)
         if (pasting) {
             Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)) {
