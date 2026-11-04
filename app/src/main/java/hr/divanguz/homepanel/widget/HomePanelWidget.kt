@@ -121,7 +121,7 @@ private fun Panel(state: PanelState, calendar: CalendarSnapshot?) {
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(Palette.hair)
+                .background(Palette.border)
                 .cornerRadius(CardRadius)
                 .padding(1.dp),
         ) {

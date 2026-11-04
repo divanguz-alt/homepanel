@@ -42,6 +42,8 @@ class SearchWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
+            // Reading the stamp makes a theme or language change recompose a running session.
+            hr.divanguz.homepanel.widget.PanelStore.redrawStamp(androidx.glance.currentState<androidx.datastore.preferences.core.Preferences>())
             Palette.use(context, hr.divanguz.homepanel.settings.Settings.get(context).look().theme)
             SearchBar(context)
         }
@@ -70,7 +72,7 @@ private fun SearchBar(context: Context) {
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .height(BarHeight)
-                .background(Palette.hair)
+                .background(Palette.border)
                 .cornerRadius(Radius)
                 .padding(1.dp),
         ) {

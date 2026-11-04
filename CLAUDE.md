@@ -66,7 +66,8 @@ matched to the county from a Croatian reverse geocode; shown only while DHMZ is 
 Settings → Appearance → Theme: Midnight (default, the colours above), Material You (system dark
 neutrals from the wallpaper), Graphite, AMOLED black, Glass (translucent card), Moss, Espresso,
 Indigo, Wine, Phosphor. Built from OKLCH with the hue carried into the neutrals; tertiary text
-stays ≥ 5.5:1 on the card. Code: `widget/Palette.kt` (`Themes`); every colour goes through
+stays ≥ 5.5:1 on the card in the fixed themes (Glass: a 78% veil, checked over a white wallpaper;
+Material You takes what the system gives and changes on the next redraw). AMOLED has no outer border. Code: `widget/Palette.kt` (`Themes`); every colour goes through
 `Palette`, which the widgets point at the chosen theme before composing. The grid's vertical
 hairline nine-patch is tinted. The car map bitmap is not themed.
 

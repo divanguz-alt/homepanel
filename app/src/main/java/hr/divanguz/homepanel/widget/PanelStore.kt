@@ -85,8 +85,12 @@ object PanelStore {
             updateAppWidgetState(context, id) { it[REDRAW] = now }
             widget.update(context, id)
         }
-        // The search bar has no data, only the language can change.
-        SearchWidget().updateAll(context)
+        // The search bar has no data, only the language and theme can change.
+        val search = SearchWidget()
+        for (id in GlanceAppWidgetManager(context).getGlanceIds(SearchWidget::class.java)) {
+            updateAppWidgetState(context, id) { it[REDRAW] = now }
+            search.update(context, id)
+        }
     }
 
     /** Seeds a freshly placed widget from the calendar and the last cached HA values. */

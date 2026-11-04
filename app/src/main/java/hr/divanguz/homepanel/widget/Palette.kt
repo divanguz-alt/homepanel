@@ -16,11 +16,14 @@ data class WidgetTheme(
     val ink: Color,
     val ink2: Color,
     val ink3: Color,
+    /** The card's outer 1dp border; the inner dividers use [hair]. */
+    val border: Color = hair,
 )
 
 /**
  * Built from OKLCH: the neutrals carry a little of the theme's hue, text steps are the same
- * lightness in every theme, and tertiary text keeps at least 5.5:1 on the card.
+ * lightness in every theme, and tertiary text keeps at least 5.5:1 on the card (checked for the
+ * fixed themes; Glass over a white wallpaper too). Material You uses whatever the system gives.
  */
 object Themes {
     const val MIDNIGHT = "midnight"
@@ -33,9 +36,9 @@ object Themes {
     private val fixed = listOf(
         midnight,
         WidgetTheme("graphite", c(0x161616), c(0x202020), c(0x292929), c(0xEBEBEB), c(0xB1B1B1), c(0x929292)),
-        WidgetTheme("amoled", c(0x000000), c(0x141414), c(0x1D1D1D), c(0xE8E8E8), c(0xABABAB), c(0x8C8C8C)),
-        // Wallpaper shows through: dark veil, light hairline, text a touch brighter for unknown backdrops.
-        WidgetTheme(GLASS, Color(0x8C000000), Color(0x26FFFFFF), Color(0x29FFFFFF), c(0xFFFFFF), c(0xD6D9E0), c(0xB4B9C3)),
+        WidgetTheme("amoled", c(0x000000), c(0x141414), c(0x1D1D1D), c(0xE8E8E8), c(0xABABAB), c(0x8C8C8C), border = c(0x000000)),
+        // Wallpaper shows through a 78% veil: enough that tertiary text keeps 5.5:1 even over white.
+        WidgetTheme(GLASS, Color(0xC7000000), Color(0x26FFFFFF), Color(0x29FFFFFF), c(0xFFFFFF), c(0xD6D9E0), c(0xB4B9C3)),
         WidgetTheme("moss", c(0x101911), c(0x19231B), c(0x222D24), c(0xE9EDE0), c(0xACB9A6), c(0x8C9A89)),
         WidgetTheme("espresso", c(0x1D140D), c(0x291E16), c(0x332720), c(0xF2EADB), c(0xC6B4A0), c(0xA5917F)),
         WidgetTheme("indigo", c(0x0C1228), c(0x161D37), c(0x202943), c(0xE7EBF6), c(0xACB7D5), c(0x8C97B8)),
@@ -74,6 +77,7 @@ object Palette {
     val card get() = theme.card
     val track get() = theme.track
     val hair get() = theme.hair
+    val border get() = theme.border
     val ink get() = theme.ink
     val ink2 get() = theme.ink2
     val ink3 get() = theme.ink3
