@@ -1120,6 +1120,19 @@ private fun AppearancePage(store: Settings) {
         }
     }
     Spacer(Modifier.height(16.dp))
+    var searchTall by remember { mutableStateOf(store.searchTall) }
+    Grouped(padded = true) {
+        ToggleRow(
+            tr("Tall search bar"),
+            tr("Twice as tall, so its corners match the panel. On a one-row widget, stretch it to two rows."),
+            searchTall,
+        ) {
+            searchTall = it
+            store.searchTall = it
+            scope.launch { withContext(Dispatchers.IO) { runCatching { PanelStore.redraw(app) } } }
+        }
+    }
+    Spacer(Modifier.height(16.dp))
     SectionLabel(tr("Sizes"))
     Grouped(padded = true) {
         SizeRow(tr("Date and city"), look.header, 0.8f..1.6f, ::pct) { save(look.copy(header = it)) }

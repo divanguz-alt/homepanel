@@ -38,6 +38,8 @@ private val BarHeight = 50.dp
 
 /** Secondary widget: a search bar in the panel's colours that opens Firefox's search. */
 class SearchWidget : GlanceAppWidget() {
+    // The real cell height, so the tall bar can shrink to fit a one-row widget.
+    override val sizeMode: androidx.glance.appwidget.SizeMode = androidx.glance.appwidget.SizeMode.Exact
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         provideContent {
@@ -64,15 +66,20 @@ class SearchReceiver : GlanceAppWidgetReceiver() {
 private fun SearchBar(context: Context) {
     val texts = Texts.of(Settings.get(context).language)
     val tint = ColorFilter.tint(Palette.ink2P)
-    // The same corners as the panel and the phone's other widgets; at most a pill on this short bar.
-    val radius = minOf(hr.divanguz.homepanel.widget.widgetRadius(context), BarHeight / 2)
+    // Tall (Settings → Appearance): twice Firefox's height, as much of it as the cell allows.
+    val tall = Settings.get(context).searchTall
+    val barHeight = if (tall) minOf(BarHeight * 2, androidx.glance.LocalSize.current.height.coerceAtLeast(BarHeight)) else BarHeight
+    // The same corners as the panel and the phone's other widgets; at most a pill on a short bar.
+    val radius = minOf(hr.divanguz.homepanel.widget.widgetRadius(context), barHeight / 2)
+    val iconSize = if (tall) 24.dp else 20.dp
+    val textSize = if (tall) 17.sp else 15.sp
     // Same size as Firefox's own bar: 50dp high, centred in the cell, full width.
     Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // Hairline border faked with an outer box, as on the panel.
         Box(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .height(BarHeight)
+                .height(barHeight)
                 .background(Palette.borderP)
                 .cornerRadius(radius)
                 .padding(1.dp),
@@ -83,14 +90,14 @@ private fun SearchBar(context: Context) {
                     .background(Palette.cardP)
                     .cornerRadius(radius - 1.dp)
                     .clickable(actionStartActivity(Firefox.searchIntent(context)))
-                    .padding(start = 18.dp, end = 1.dp),
+                    .padding(start = if (tall) 24.dp else 18.dp, end = if (tall) 8.dp else 1.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Image(ImageProvider(R.drawable.ic_search), null, GlanceModifier.size(20.dp), colorFilter = tint)
+                Image(ImageProvider(R.drawable.ic_search), null, GlanceModifier.size(iconSize), colorFilter = tint)
                 Spacer(GlanceModifier.width(14.dp))
                 Text(
                     texts.searchWeb,
-                    style = TextStyle(color = Palette.ink2P, fontSize = 15.sp),
+                    style = TextStyle(color = Palette.ink2P, fontSize = textSize),
                     maxLines = 1,
                     modifier = GlanceModifier.defaultWeight(),
                 )
@@ -101,7 +108,7 @@ private fun SearchBar(context: Context) {
                         .clickable(actionStartActivity(Intent(context, VoiceSearchActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Image(ImageProvider(R.drawable.ic_mic), null, GlanceModifier.size(20.dp), colorFilter = tint)
+                    Image(ImageProvider(R.drawable.ic_mic), null, GlanceModifier.size(iconSize), colorFilter = tint)
                 }
             }
         }

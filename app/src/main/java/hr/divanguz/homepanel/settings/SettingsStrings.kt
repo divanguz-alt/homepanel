@@ -45,6 +45,8 @@ internal object SettingsLanguage {
         "Last updated" to "Zadnje osvježeno",
         "Nothing fetched yet" to "Još ništa nije dohvaćeno",
         "Corners: %s dp, the phone's own widget radius (both widgets use it)" to "Kutovi: %s dp, polumjer widgeta samog mobitela (koriste ga oba widgeta)",
+        "Tall search bar" to "Visoka traka za pretraživanje",
+        "Twice as tall, so its corners match the panel. On a one-row widget, stretch it to two rows." to "Dvostruko viša, pa su joj kutovi isti kao na panelu. Ako je widget u jednom redu, rastegni ga na dva.",
         // Layout
         "Layout" to "Raspored",
         "Everything hidden" to "Sve je skriveno",

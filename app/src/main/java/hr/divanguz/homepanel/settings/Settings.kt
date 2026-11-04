@@ -137,6 +137,11 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         get() = prefs.getBoolean(SHOW_HOURLY, true)
         set(v) = prefs.edit().putBoolean(SHOW_HOURLY, v).apply()
 
+    /** Search bar twice as tall (100dp), so its corners can match the panel's instead of being a pill. */
+    var searchTall: Boolean
+        get() = prefs.getBoolean(SEARCH_TALL, false)
+        set(v) = prefs.edit().putBoolean(SEARCH_TALL, v).apply()
+
     /** Widget language: "en" or "hr". */
     var language: String
         get() = prefs.getString(LANGUAGE, null) ?: "en"
@@ -301,6 +306,7 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         private const val SHOW_RAIN = "show_rain_nowcast"
         private const val SHOW_HOURLY = "show_hourly"
         private const val HIDDEN_CALENDARS = "hidden_calendars"
+        private const val SEARCH_TALL = "search_tall"
         private const val GITHUB_TOKEN = "github_token"
         private const val MAP_ZOOM = "map_zoom"
         private const val TEMP_NOTIFICATION = "temp_notification"
