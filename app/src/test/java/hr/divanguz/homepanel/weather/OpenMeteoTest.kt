@@ -60,4 +60,20 @@ class OpenMeteoTest {
         val r = OpenMeteo.parseNowcast(nowcast(0.5, 0.5, 0.5, 0.5), (t0 + 60) * 1000)
         assertNull(r.endsAt)
     }
+
+    @Test fun hoursStartAfterNowAndKeepSix() {
+        val times = (0..7).joinToString { (t0 + it * 3600).toString() }
+        val r = OpenMeteo.parseNowcast(
+            json("""{"hourly":{"time":[$times],"temperature_2m":[10,11,12,13,14,15,16,17],
+                "precipitation_probability":[0,5,30,null,0,0,0,0],"weather_code":[0,0,61,3,0,0,0,0],
+                "is_day":[1,1,1,1,1,1,0,0]}}"""),
+            (t0 + 600) * 1000,
+        )
+        assertEquals(6, r.hours.size)
+        assertEquals((t0 + 3600) * 1000, r.hours[0].time)
+        assertEquals(30, r.hours[1].rainChance)
+        assertEquals("rainy", r.hours[1].condition)
+        assertNull(r.hours[2].rainChance)
+        assertEquals("clear-night", r.hours[5].condition)
+    }
 }

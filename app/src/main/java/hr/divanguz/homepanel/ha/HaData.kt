@@ -44,6 +44,18 @@ data class RainNowcast(
     val startsAt: Long? = null,
     val endsAt: Long? = null,
     val fetchedAt: Long = 0,
+    /** The next hours from Open-Meteo's hourly forecast, fetched with the nowcast. */
+    val hours: List<HourForecast> = emptyList(),
+)
+
+@Serializable
+data class HourForecast(
+    /** Start of the hour, epoch millis. */
+    val time: Long,
+    val temperature: Double?,
+    /** Chance of precipitation, percent. */
+    val rainChance: Int?,
+    val condition: String,
 )
 
 @Serializable

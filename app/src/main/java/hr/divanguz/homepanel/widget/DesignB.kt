@@ -149,6 +149,7 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
                     Label(rain, sz(14, look.conditions), Palette.ink2P)
                 }
             }
+            HourlyStrip(weather, main, second)
         }
         Box(
             modifier = GlanceModifier

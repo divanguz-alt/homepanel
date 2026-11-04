@@ -1,6 +1,7 @@
 package hr.divanguz.homepanel.weather
 
 import hr.divanguz.homepanel.ha.DayForecast
+import hr.divanguz.homepanel.ha.HourForecast
 import hr.divanguz.homepanel.ha.RainNowcast
 import hr.divanguz.homepanel.ha.WeatherData
 import kotlinx.serialization.json.Json
@@ -72,12 +73,35 @@ object OpenMeteo {
     fun nowcast(lat: Double, lon: Double, now: Long = System.currentTimeMillis()): RainNowcast {
         val root = get(
             "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f".format(Locale.US, lat, lon) +
-                "&minutely_15=precipitation&past_minutely_15=1&forecast_minutely_15=12&timeformat=unixtime",
+                "&minutely_15=precipitation&past_minutely_15=1&forecast_minutely_15=12&timeformat=unixtime" +
+                "&hourly=temperature_2m,precipitation_probability,weather_code,is_day&forecast_hours=8",
         )
         return parseNowcast(root, now)
     }
 
-    internal fun parseNowcast(root: JsonObject, now: Long): RainNowcast {
+    internal fun parseNowcast(root: JsonObject, now: Long): RainNowcast =
+        parseRain(root, now).copy(hours = parseHours(root, now))
+
+    /** The hours that haven't started yet, up to six. */
+    internal fun parseHours(root: JsonObject, now: Long): List<HourForecast> {
+        val h = root["hourly"] as? JsonObject ?: return emptyList()
+        val times = h.list("time").map { ((it as? JsonPrimitive)?.doubleOrNull ?: 0.0).toLong() * 1000 }
+        val temps = h.list("temperature_2m")
+        val chances = h.list("precipitation_probability")
+        val codes = h.list("weather_code")
+        val days = h.list("is_day")
+        return times.mapIndexedNotNull { i, t ->
+            if (t <= now) return@mapIndexedNotNull null
+            HourForecast(
+                time = t,
+                temperature = (temps.getOrNull(i) as? JsonPrimitive)?.doubleOrNull,
+                rainChance = (chances.getOrNull(i) as? JsonPrimitive)?.intOrNull,
+                condition = condition((codes.getOrNull(i) as? JsonPrimitive)?.intOrNull, (days.getOrNull(i) as? JsonPrimitive)?.intOrNull != 0),
+            )
+        }.take(6)
+    }
+
+    private fun parseRain(root: JsonObject, now: Long): RainNowcast {
         val m = root["minutely_15"] as? JsonObject ?: return RainNowcast(fetchedAt = now)
         val times = (m["time"] as? JsonArray).orEmpty().map { ((it as? JsonPrimitive)?.doubleOrNull ?: 0.0).toLong() * 1000 }
         val rain = (m["precipitation"] as? JsonArray).orEmpty().map { (it as? JsonPrimitive)?.doubleOrNull ?: 0.0 }

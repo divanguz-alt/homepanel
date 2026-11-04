@@ -127,6 +127,11 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         get() = prefs.getBoolean(SHOW_RAIN, true)
         set(v) = prefs.edit().putBoolean(SHOW_RAIN, v).apply()
 
+    /** A strip with the next six hours under the current weather. */
+    var showHourly: Boolean
+        get() = prefs.getBoolean(SHOW_HOURLY, true)
+        set(v) = prefs.edit().putBoolean(SHOW_HOURLY, v).apply()
+
     /** Widget language: "en" or "hr". */
     var language: String
         get() = prefs.getString(LANGUAGE, null) ?: "en"
@@ -289,6 +294,7 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         private const val SHOW_DATE = "show_date_b"
         private const val LANGUAGE = "widget_language"
         private const val SHOW_RAIN = "show_rain_nowcast"
+        private const val SHOW_HOURLY = "show_hourly"
         private const val GITHUB_TOKEN = "github_token"
         private const val MAP_ZOOM = "map_zoom"
         private const val TEMP_NOTIFICATION = "temp_notification"

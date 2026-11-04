@@ -39,6 +39,8 @@ data class WeatherState(
     val aqi: String?,
     /** The next three days after today; empty when HA gave no daily forecast. */
     val days: List<ForecastDayState>,
+    /** The next hours (Open-Meteo); empty when unknown or too old. */
+    val hours: List<HourState> = emptyList(),
     val stale: Boolean,
 )
 
@@ -50,6 +52,8 @@ data class ForecastDayState(
     val high: String,
     val low: String?,
 )
+
+data class HourState(val label: String, @param:DrawableRes val icon: Int, val temperature: String, val rain: String?)
 
 data class CarState(
     val name: String,
@@ -131,6 +135,16 @@ fun panelState(
                 )
             },
             icon = Conditions.icon(w.condition),
+            hours = ha.rain?.takeIf { nowMillis - it.fetchedAt < 3 * 3_600_000L }?.hours.orEmpty()
+                .filter { it.time > nowMillis - 3_600_000L / 2 }.take(6).map { h ->
+                    HourState(
+                        label = Instant.ofEpochMilli(h.time).atZone(zone).hour.toString(),
+                        icon = Conditions.icon(h.condition),
+                        temperature = h.temperature?.let { "${it.roundToInt()}°" } ?: "–",
+                        // Only a chance worth noticing.
+                        rain = h.rainChance?.takeIf { it >= 20 }?.let { "$it%" },
+                    )
+                },
             aqi = w.aqi?.let { "AQI $it" },
             stale = stale(ha.weatherAt, WEATHER_STALE_AFTER_MS),
         )

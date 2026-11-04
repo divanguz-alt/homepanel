@@ -252,6 +252,7 @@ private fun WeatherZone(state: PanelState, context: Context) {
                     }
                 }
             }
+            HourlyStrip(weather, main, second)
         }
         Box(
             modifier = GlanceModifier
@@ -263,6 +264,30 @@ private fun WeatherZone(state: PanelState, context: Context) {
         }
     }
 }
+
+/** The next six hours: hour, icon, temperature, and the chance of rain when it's 20% or more. */
+@Composable
+internal fun HourlyStrip(weather: WeatherState?, main: ColorProvider, second: ColorProvider) {
+    val hours = weather?.hours.orEmpty()
+    if (hours.isEmpty() || !Settings.get(LocalContext.current).showHourly) return
+    val k = LocalLook.current.conditions
+    Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 12.dp)) {
+        Row(modifier = GlanceModifier.fillMaxWidth()) {
+            hours.forEach { h ->
+                Column(modifier = GlanceModifier.defaultWeight(), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Label(h.label, sz(13, k), Palette.ink3P)
+                    Spacer(GlanceModifier.height(3.dp))
+                    Icon(h.icon, dz(20, k), second)
+                    Spacer(GlanceModifier.height(3.dp))
+                    Label(h.temperature, sz(15, k), main)
+                    Label(h.rain ?: " ", sz(11, k), RainTint)
+                }
+            }
+        }
+    }
+}
+
+private val RainTint = ColorProvider(Color(0xFF7FB2E5))
 
 /** One column per day: name, icon, then high and low side by side. */
 @Composable

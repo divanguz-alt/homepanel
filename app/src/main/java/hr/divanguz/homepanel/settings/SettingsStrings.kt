@@ -36,6 +36,8 @@ internal object SettingsLanguage {
         "Replaces the current settings" to "Zamjenjuje trenutne postavke",
         "Result" to "Rezultat",
         "The file holds your Home Assistant addresses and entity names, so keep it somewhere private." to "Datoteka sadrži adrese Home Assistanta i nazive entiteta, pa je čuvaj na privatnom mjestu.",
+        "Next hours" to "Idući sati",
+        "Six hours under the weather: temperature, and the chance of rain from 20%" to "Šest sati ispod vremena: temperatura i vjerojatnost kiše od 20 %",
         // Layout
         "Layout" to "Raspored",
         "Everything hidden" to "Sve je skriveno",

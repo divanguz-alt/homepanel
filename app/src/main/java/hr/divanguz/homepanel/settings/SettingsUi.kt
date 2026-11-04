@@ -651,6 +651,10 @@ private fun WeatherPage(store: Settings, onChanged: () -> Unit) {
         ToggleRow(tr("Rain coming soon"), tr("\"Rain from 14:20\" / \"Rain until 15:10\" under the conditions, only when it rains"), showRain) {
             showRain = it; store.showRain = it; onChanged()
         }
+        var hourly by remember { mutableStateOf(store.showHourly) }
+        ToggleRow(tr("Next hours"), tr("Six hours under the weather: temperature, and the chance of rain from 20%"), hourly) {
+            hourly = it; store.showHourly = it; onChanged()
+        }
         ToggleRow(tr("Show source on the widget"), tr("Small grey \"Source: …\" in the weather zone"), showSource) {
             showSource = it; store.showSource = it; onChanged()
         }
