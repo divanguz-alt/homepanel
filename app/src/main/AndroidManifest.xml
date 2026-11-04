@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
     <!-- In-app updates from GitHub Releases: Android still asks the user to confirm each install. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Optional temperature and Claude limit notifications (off until switched on in settings). -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <!-- Needed so getLaunchIntentForPackage works on Android 11+. -->
     <queries>
@@ -73,6 +75,43 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/home_panel_info" />
+        </receiver>
+
+        <!-- Small widgets with one zone of the panel each. -->
+        <receiver
+            android:name=".widget.ClaudeWidgetReceiver"
+            android:exported="true"
+            android:label="@string/claude_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/claude_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.CarWidgetReceiver"
+            android:exported="true"
+            android:label="@string/car_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/car_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.WeatherWidgetReceiver"
+            android:exported="true"
+            android:label="@string/weather_widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/weather_widget_info" />
         </receiver>
 
         <!-- Search bar widget: opens Firefox's search, the mic dictates a query for it. -->

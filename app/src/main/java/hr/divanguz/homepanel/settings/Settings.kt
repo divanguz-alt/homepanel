@@ -155,6 +155,20 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         get() = WeatherProvider.from(prefs.getString(WEATHER_PROVIDER, null))
         set(v) = prefs.edit().putString(WEATHER_PROVIDER, v.name).apply()
 
+    /** Temperature as an ongoing notification (status bar, lock screen). */
+    var tempNotification: Boolean
+        get() = prefs.getBoolean(TEMP_NOTIFICATION, false)
+        set(v) = prefs.edit().putBoolean(TEMP_NOTIFICATION, v).apply()
+
+    /** Notify when a Claude limit passes [claudeThreshold] percent, and when it resets. */
+    var claudeAlerts: Boolean
+        get() = prefs.getBoolean(CLAUDE_ALERTS, false)
+        set(v) = prefs.edit().putBoolean(CLAUDE_ALERTS, v).apply()
+
+    var claudeThreshold: Int
+        get() = prefs.getInt(CLAUDE_THRESHOLD, 80)
+        set(v) = prefs.edit().putInt(CLAUDE_THRESHOLD, v).apply()
+
     fun look(): Look {
         val d = Look()
         return Look(
@@ -188,7 +202,53 @@ class Settings private constructor(private val prefs: SharedPreferences) {
             .apply()
     }
 
+    /**
+     * Every setting except secrets (token, Claude session), as JSON with each value's type, for a backup
+     * file. Secrets stay only in this encrypted store; after a restore the token is entered again.
+     */
+    fun exportJson(): String {
+        val out = org.json.JSONObject()
+        for ((key, value) in prefs.all.toSortedMap()) {
+            if (key == TOKEN || key.startsWith("claude_session") || key in SECRET) continue
+            val typed = when (value) {
+                is Boolean -> "b" to value
+                is Int -> "i" to value
+                is Long -> "l" to value
+                is Float -> "f" to value.toDouble()
+                is String -> "s" to value
+                else -> continue
+            }
+            out.put(key, org.json.JSONObject().put("t", typed.first).put("v", typed.second))
+        }
+        return org.json.JSONObject().put("homepanel", 1).put("settings", out).toString(2)
+    }
+
+    /** Restores [exportJson] output; returns how many settings were applied. Secrets are never read. */
+    fun importJson(text: String): Int {
+        val root = org.json.JSONObject(text)
+        require(root.optInt("homepanel") == 1) { "Not a HomePanel settings file" }
+        val all = root.getJSONObject("settings")
+        val edit = prefs.edit()
+        var n = 0
+        for (key in all.keys()) {
+            if (key == TOKEN || key.startsWith("claude_session") || key in SECRET) continue
+            val e = all.getJSONObject(key)
+            when (e.getString("t")) {
+                "b" -> edit.putBoolean(key, e.getBoolean("v"))
+                "i" -> edit.putInt(key, e.getInt("v"))
+                "l" -> edit.putLong(key, e.getLong("v"))
+                "f" -> edit.putFloat(key, e.getDouble("v").toFloat())
+                "s" -> edit.putString(key, e.getString("v"))
+                else -> continue
+            }
+            n++
+        }
+        edit.apply()
+        return n
+    }
+
     companion object {
+        private val SECRET = setOf("claude_session_key", "claude_cf_clearance", "claude_user_agent", "claude_org_id", "github_token")
         private const val WEATHER_PROVIDER = "weather_provider"
         private const val CLAUDE_SESSION = "claude_session_key"
         private const val CLAUDE_CF = "claude_cf_clearance"
@@ -231,6 +291,9 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         private const val SHOW_RAIN = "show_rain_nowcast"
         private const val GITHUB_TOKEN = "github_token"
         private const val MAP_ZOOM = "map_zoom"
+        private const val TEMP_NOTIFICATION = "temp_notification"
+        private const val CLAUDE_ALERTS = "claude_alerts"
+        private const val CLAUDE_THRESHOLD = "claude_alert_threshold"
 
         @Volatile private var instance: Settings? = null
 

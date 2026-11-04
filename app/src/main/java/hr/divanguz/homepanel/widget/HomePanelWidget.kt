@@ -114,25 +114,31 @@ class HomePanelWidget : GlanceAppWidget() {
     }
 }
 
+/** The panel's card: theme colour, 1dp hairline (an outer box one dp larger), rounded corners. */
+@Composable
+internal fun Card(content: @Composable () -> Unit) {
+    Box(
+        modifier = GlanceModifier
+            .fillMaxSize()
+            .background(Palette.border)
+            .cornerRadius(CardRadius)
+            .padding(1.dp),
+    ) {
+        Box(
+            modifier = GlanceModifier
+                .fillMaxSize()
+                .background(Palette.card)
+                .cornerRadius(CardRadius - 1.dp),
+        ) { content() }
+    }
+}
+
 @Composable
 private fun Panel(state: PanelState, calendar: CalendarSnapshot?) {
     val context = LocalContext.current
     // The card fills the whole widget frame; only the calendar grows or shrinks with it.
-    Box(modifier = GlanceModifier.fillMaxSize()) {
-        // Hairline border faked with an outer box one dp larger than the card.
-        Box(
-            modifier = GlanceModifier
-                .fillMaxSize()
-                .background(Palette.border)
-                .cornerRadius(CardRadius)
-                .padding(1.dp),
-        ) {
-            Column(
-                modifier = GlanceModifier
-                    .fillMaxSize()
-                    .background(Palette.card)
-                    .cornerRadius(CardRadius - 1.dp),
-            ) {
+    Card {
+            Column(modifier = GlanceModifier.fillMaxSize()) {
                 // Smaller widgets drop whole zones rather than squeezing them: the calendar goes first
                 // (it is the flexible part), then the car/Claude grid. Zones come in the order chosen in
                 // settings, and hidden ones are left out.
@@ -160,7 +166,6 @@ private fun Panel(state: PanelState, calendar: CalendarSnapshot?) {
                 // Without a calendar nothing stretches; the empty part of the card goes at the bottom.
                 if (Zones.CALENDAR !in zones) Spacer(GlanceModifier.defaultWeight())
             }
-        }
     }
 }
 
@@ -401,7 +406,7 @@ private fun BottomGrid(state: PanelState, context: Context) {
 }
 
 @Composable
-private fun CarZone(
+internal fun CarZone(
     car: CarState?,
     haConfigured: Boolean,
     context: Context,
@@ -530,7 +535,7 @@ private fun CarZoneRender(car: CarState?, haConfigured: Boolean, context: Contex
 }
 
 @Composable
-private fun ClaudeZone(claude: ClaudeState, context: Context, modifier: GlanceModifier, barWidth: Dp, atLeftEdge: Boolean = false) {
+internal fun ClaudeZone(claude: ClaudeState, context: Context, modifier: GlanceModifier, barWidth: Dp, atLeftEdge: Boolean = false) {
     val k = LocalLook.current.bottom
     val signIn = Intent(context, ClaudeLoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     // The wider inset goes on the card's edge, the narrower one beside the hairline.

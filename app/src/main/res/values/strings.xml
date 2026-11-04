@@ -5,4 +5,10 @@
     <string name="widget_description">Weather, calendar, car and Claude usage in one panel</string>
     <string name="search_widget_name">HomePanel search</string>
     <string name="search_widget_description">Search bar that opens Firefox search, styled like the panel</string>
+    <string name="claude_widget_name">HomePanel · Claude</string>
+    <string name="claude_widget_description">Claude usage bars; tap them to refresh</string>
+    <string name="car_widget_name">HomePanel · Car</string>
+    <string name="car_widget_description">Where the car is parked, with the map and range</string>
+    <string name="weather_widget_name">HomePanel · Weather</string>
+    <string name="weather_widget_description">Temperature and conditions from your chosen source</string>
 </resources>

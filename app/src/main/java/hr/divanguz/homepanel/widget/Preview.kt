@@ -42,7 +42,7 @@ object Preview {
         val version = context.packageManager.getPackageInfo(context.packageName, 0).lastUpdateTime
         if (prefs.getLong("preview_version", -1) == version) return
         val manager = GlanceAppWidgetManager(context)
-        val results = listOf(HomePanelReceiver::class, SearchReceiver::class).map { receiver ->
+        val results = listOf(HomePanelReceiver::class, SearchReceiver::class, ClaudeWidgetReceiver::class, CarWidgetReceiver::class, WeatherWidgetReceiver::class).map { receiver ->
             runCatching { manager.setWidgetPreviews(receiver) }
                 .onFailure { Log.w("HomePanel", "Widget preview not published", it) }
                 .getOrNull()

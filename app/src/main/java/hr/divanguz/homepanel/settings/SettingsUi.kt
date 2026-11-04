@@ -89,6 +89,7 @@ import hr.divanguz.homepanel.widget.Look
 import hr.divanguz.homepanel.widget.PanelStore
 import hr.divanguz.homepanel.widget.Themes
 import hr.divanguz.homepanel.widget.Zones
+import hr.divanguz.homepanel.notify.Alerts
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -114,7 +115,7 @@ private val Scheme = darkColorScheme(
 
 private enum class Page(val title: String) {
     Main("HomePanel"), HomeAssistant("Home Assistant"), Weather("Weather"), Calendar("Calendar"), Car("Car"),
-    Claude("Claude"), Appearance("Appearance"), Layout("Layout"), Updates("Updates")
+    Claude("Claude"), Appearance("Appearance"), Layout("Layout"), Notifications("Notifications"), Backup("Backup"), Updates("Updates")
 }
 
 /** Icon colours on the main page, one per section, toned to sit on the dark ground. */
@@ -287,6 +288,8 @@ private fun Screens(goHome: () -> Unit) {
             Page.Claude -> ClaudePage(store, onChanged = { reload() })
             Page.Appearance -> AppearancePage(store)
             Page.Layout -> LayoutPage(store)
+            Page.Notifications -> NotificationsPage(store)
+            Page.Backup -> BackupPage(store, onRestored = { refresh() })
             Page.Updates -> UpdatesPage(store)
         }
         Spacer(Modifier.height(40.dp))
@@ -326,6 +329,14 @@ private fun MainPage(
         Item(tr("Appearance"), Settings.get(LocalContext.current).look().let { l -> Summary((if (l.designB) tr("Design B") else tr("Design A")) + " · " + themeText(l.theme).first + " · " + tr("sizes")) }, onClick = { open(Page.Appearance) }, icon = R.drawable.ic_palette, hue = Hues.look)
         Item(tr("Layout"), layoutSummary(Settings.get(LocalContext.current).look()), onClick = { open(Page.Layout) }, icon = R.drawable.ic_layout, hue = Hues.layout)
         Item(
+            tr("Notifications"),
+            Settings.get(LocalContext.current).let { st ->
+                Summary(listOfNotNull(tr("Temperature").takeIf { st.tempNotification }, tr("Claude limits").takeIf { st.claudeAlerts })
+                    .joinToString(" · ").ifEmpty { tr("Off") })
+            },
+            onClick = { open(Page.Notifications) }, icon = R.drawable.ic_bell, hue = Hues.alerts,
+        )
+        Item(
             tr("Background refresh"),
             if (batteryOk) Summary(tr("Unrestricted")) else Summary(tr("Optimized by the system · tap to allow"), warn = true),
             onClick = if (batteryOk) null else onBattery,
@@ -342,6 +353,7 @@ private fun MainPage(
     }
     Grouped {
         Item(tr("Updates"), Summary(trf("Version %s · check GitHub for a newer one", version)), onClick = { open(Page.Updates) }, icon = R.drawable.ic_download, hue = Hues.updates)
+        Item(tr("Backup"), Summary(tr("Save settings to a file, or restore them")), onClick = { open(Page.Backup) }, icon = R.drawable.ic_backup, hue = Hues.backup)
         Item(tr("Source on GitHub"), Summary("divanguz-alt/homepanel"), onClick = {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }, last = true, icon = R.drawable.ic_code, hue = Ink2)
@@ -1119,6 +1131,117 @@ private fun Arrow(res: Int, enabled: Boolean, onClick: () -> Unit) {
     ) {
         Image(painterResource(res), null, colorFilter = ColorFilter.tint(if (enabled) Ink2 else Hair), modifier = Modifier.size(20.dp))
     }
+}
+
+@Composable
+private fun NotificationsPage(store: Settings) {
+    val context = LocalContext.current
+    val app = context.applicationContext
+    val scope = rememberCoroutineScope()
+    var temp by remember { mutableStateOf(store.tempNotification) }
+    var claude by remember { mutableStateOf(store.claudeAlerts) }
+    var threshold by remember { mutableStateOf(store.claudeThreshold) }
+    var denied by remember { mutableStateOf(false) }
+    var pending by remember { mutableStateOf<(() -> Unit)?>(null) }
+    val permission = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { ok ->
+        denied = !ok
+        if (ok) pending?.invoke()
+        pending = null
+    }
+    fun withPermission(then: () -> Unit) {
+        if (Alerts.canPost(context)) then() else { pending = then; permission.launch(Manifest.permission.POST_NOTIFICATIONS) }
+    }
+    fun showTemperatureNow() = scope.launch {
+        withContext(Dispatchers.IO) { Alerts.weatherChanged(app, HaRepository.cached(app)) }
+    }
+
+    Grouped(padded = true) {
+        ToggleRow(
+            tr("Temperature in the status bar"),
+            tr("A quiet notification whose icon is the temperature, also on the lock screen. Always On Display shows only the icon."),
+            temp,
+        ) { on ->
+            if (on) withPermission {
+                temp = true; store.tempNotification = true
+                hr.divanguz.homepanel.work.Refresh.ensureScheduled(app)
+                showTemperatureNow()
+            } else {
+                temp = false; store.tempNotification = false
+                Alerts.clearWeather(app)
+            }
+        }
+    }
+    Spacer(Modifier.height(16.dp))
+    Grouped(padded = true) {
+        ToggleRow(
+            tr("Claude limit warnings"),
+            tr("Once per window when usage passes the limit below, and again when it resets"),
+            claude,
+        ) { on ->
+            if (on) withPermission {
+                claude = true; store.claudeAlerts = true
+                hr.divanguz.homepanel.work.Refresh.ensureScheduled(app)
+            } else { claude = false; store.claudeAlerts = false }
+        }
+        if (claude) {
+            Choice(tr("Warn at"), listOf(50 to "50%", 70 to "70%", 80 to "80%", 90 to "90%"), threshold) {
+                threshold = it; store.claudeThreshold = it
+            }
+        }
+    }
+    if (denied) {
+        Spacer(Modifier.height(12.dp))
+        T(
+            tr("Notifications are blocked for HomePanel. Allow them in Android settings."), 14, Attention,
+            modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable {
+                context.startActivity(
+                    Intent(AndroidSettings.ACTION_APP_NOTIFICATION_SETTINGS).putExtra(AndroidSettings.EXTRA_APP_PACKAGE, context.packageName)
+                        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK),
+                )
+            }.padding(10.dp),
+        )
+    }
+    Spacer(Modifier.height(12.dp))
+    T(
+        tr("Checked with the background refresh, about every 15 minutes."), 13, Ink3,
+        modifier = Modifier.padding(horizontal = 18.dp),
+    )
+}
+
+/** Settings to a JSON file through the system file picker, and back. The token and Claude session are left out. */
+@Composable
+private fun BackupPage(store: Settings, onRestored: () -> Unit) {
+    val context = LocalContext.current
+    val app = context.applicationContext
+    var status by remember { mutableStateOf<Summary?>(null) }
+    val save = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        status = runCatching {
+            context.contentResolver.openOutputStream(uri, "wt")!!.use { it.write(store.exportJson().toByteArray()) }
+            Summary(tr("Saved"))
+        }.getOrElse { Summary(it.message ?: tr("Couldn't save"), warn = true) }
+    }
+    val load = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        status = runCatching {
+            val text = context.contentResolver.openInputStream(uri)!!.use { it.readBytes().decodeToString() }
+            val n = store.importJson(text)
+            SettingsLanguage.croatian.value = store.language == "hr"
+            CarMap.invalidate(app)
+            onRestored()
+            Summary(trf("Restored %s settings. Enter the Home Assistant token again and sign in to Claude.", n))
+        }.getOrElse { Summary(it.message ?: tr("Couldn't read the file"), warn = true) }
+    }
+    Grouped {
+        Item(tr("Save to a file"), Summary(tr("Everything except the token and the Claude sign-in")), onClick = { save.launch("homepanel-settings.json") })
+        Item(tr("Restore from a file"), Summary(tr("Replaces the current settings")), onClick = { load.launch(arrayOf("application/json", "text/*", "application/octet-stream")) }, last = status == null)
+        status?.let { Item(tr("Result"), it, onClick = null, last = true) }
+    }
+    Spacer(Modifier.height(12.dp))
+    T(
+        tr("The file holds your Home Assistant addresses and entity names, so keep it somewhere private."), 13, Ink3,
+        modifier = Modifier.padding(horizontal = 18.dp),
+    )
 }
 
 /** Name and one line for each theme in [Themes.ids]. */

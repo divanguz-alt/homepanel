@@ -12,6 +12,30 @@ internal object SettingsLanguage {
 
     val HR: Map<String, String> = mapOf(
         // Main page
+        // Notifications and backup
+        "Notifications" to "Obavijesti",
+        "Temperature" to "Temperatura",
+        "Claude limits" to "Claude limiti",
+        "Off" to "Isključeno",
+        "Temperature in the status bar" to "Temperatura u traci stanja",
+        "A quiet notification whose icon is the temperature, also on the lock screen. Always On Display shows only the icon." to "Tiha obavijest kojoj je ikona temperatura, vidi se i na zaključanom zaslonu. Always On Display prikazuje samo ikonu.",
+        "Claude limit warnings" to "Upozorenja za Claude limit",
+        "Once per window when usage passes the limit below, and again when it resets" to "Jednom po razdoblju kad potrošnja prijeđe granicu ispod, i opet kad se resetira",
+        "Warn at" to "Upozori na",
+        "Notifications are blocked for HomePanel. Allow them in Android settings." to "Obavijesti za HomePanel su blokirane. Dopusti ih u postavkama Androida.",
+        "Checked with the background refresh, about every 15 minutes." to "Provjerava se uz osvježavanje u pozadini, otprilike svakih 15 minuta.",
+        "Backup" to "Sigurnosna kopija",
+        "Save settings to a file, or restore them" to "Spremi postavke u datoteku ili ih vrati",
+        "Saved" to "Spremljeno",
+        "Couldn't save" to "Spremanje nije uspjelo",
+        "Couldn't read the file" to "Datoteka se ne može pročitati",
+        "Restored %s settings. Enter the Home Assistant token again and sign in to Claude." to "Vraćeno postavki: %s. Ponovno upiši Home Assistant token i prijavi se u Claude.",
+        "Save to a file" to "Spremi u datoteku",
+        "Everything except the token and the Claude sign-in" to "Sve osim tokena i Claude prijave",
+        "Restore from a file" to "Vrati iz datoteke",
+        "Replaces the current settings" to "Zamjenjuje trenutne postavke",
+        "Result" to "Rezultat",
+        "The file holds your Home Assistant addresses and entity names, so keep it somewhere private." to "Datoteka sadrži adrese Home Assistanta i nazive entiteta, pa je čuvaj na privatnom mjestu.",
         // Layout
         "Layout" to "Raspored",
         "Everything hidden" to "Sve je skriveno",

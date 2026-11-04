@@ -27,6 +27,11 @@ class HomePanelReceiver : GlanceAppWidgetReceiver() {
 
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
-        Refresh.cancelAll(context)
+        // Small widgets and notifications still need the background refresh.
+        val manager = AppWidgetManager.getInstance(context)
+        val others = listOf(ClaudeWidgetReceiver::class.java, CarWidgetReceiver::class.java, WeatherWidgetReceiver::class.java)
+            .any { manager.getAppWidgetIds(android.content.ComponentName(context, it)).isNotEmpty() }
+        val settings = hr.divanguz.homepanel.settings.Settings.get(context)
+        if (!others && !settings.tempNotification && !settings.claudeAlerts) Refresh.cancelAll(context)
     }
 }

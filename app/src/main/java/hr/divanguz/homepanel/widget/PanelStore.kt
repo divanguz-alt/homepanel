@@ -8,6 +8,7 @@ import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.glance.GlanceId
+import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetManager
 import androidx.glance.appwidget.state.updateAppWidgetState
 import androidx.glance.appwidget.updateAll
@@ -18,6 +19,7 @@ import hr.divanguz.homepanel.claude.ClaudeUsage
 import hr.divanguz.homepanel.search.SearchWidget
 import hr.divanguz.homepanel.ha.HaRepository
 import hr.divanguz.homepanel.ha.HaSnapshot
+import hr.divanguz.homepanel.notify.Alerts
 import kotlinx.serialization.json.Json
 
 /** Data for the widget lives in each instance's Glance state, so writes trigger recomposition. */
@@ -28,6 +30,18 @@ object PanelStore {
     private val CLAUDE = stringPreferencesKey("claude")
     private val CLAUDE_BUSY = booleanPreferencesKey("claude_busy")
     private val json = Json { ignoreUnknownKeys = true }
+
+    /** Every widget that shows panel data: the panel and the small one-zone widgets. */
+    private val kinds: List<() -> GlanceAppWidget> = listOf(::HomePanelWidget, ::ClaudeWidget, ::CarWidget, ::WeatherWidget)
+
+    /** All placed data widgets, each with an instance of its own class (update needs the matching one). */
+    private suspend fun placed(context: Context): List<Pair<GlanceAppWidget, GlanceId>> {
+        val manager = GlanceAppWidgetManager(context)
+        return kinds.flatMap { make ->
+            val widget = make()
+            manager.getGlanceIds(widget.javaClass).map { widget to it }
+        }
+    }
 
     fun calendar(prefs: Preferences): CalendarSnapshot? =
         prefs[CALENDAR]?.let { runCatching { json.decodeFromString<CalendarSnapshot>(it) }.getOrNull() }
@@ -45,8 +59,7 @@ object PanelStore {
 
     /** Shows "updating…" on every widget right away, before the fetch starts. */
     suspend fun markClaudeBusy(context: Context) {
-        val widget = HomePanelWidget()
-        for (id in GlanceAppWidgetManager(context).getGlanceIds(HomePanelWidget::class.java)) {
+        for ((widget, id) in placed(context)) {
             updateAppWidgetState(context, id) { it[CLAUDE_BUSY] = true }
             widget.update(context, id)
         }
@@ -55,16 +68,16 @@ object PanelStore {
     /** Refreshes only Claude usage, showing "updating…" on the widget meanwhile. */
     suspend fun refreshClaude(context: Context) {
         markClaudeBusy(context)
-        val widget = HomePanelWidget()
-        val ids = GlanceAppWidgetManager(context).getGlanceIds(HomePanelWidget::class.java)
+        val all = placed(context)
         try {
             val snapshot = runCatching { ClaudeUsage.refresh(context) }
                 .onFailure { Log.e("HomePanel", "Claude refresh failed", it) }
                 .getOrElse { ClaudeUsage.cached(context).copy(error = it.message ?: "failed") }
-            for (id in ids) updateAppWidgetState(context, id) { it[CLAUDE] = claudeJson(snapshot) }
+            for ((_, id) in all) updateAppWidgetState(context, id) { it[CLAUDE] = claudeJson(snapshot) }
+            Alerts.claudeChecked(context, snapshot)
         } finally {
-            // Always clear "updating…", or a killed fetch would leave it on for good.
-            for (id in ids) {
+            // Always clear the spinner, or a killed fetch would leave it on for good.
+            for ((widget, id) in all) {
                 updateAppWidgetState(context, id) { it[CLAUDE_BUSY] = false }
                 widget.update(context, id)
             }
@@ -79,9 +92,8 @@ object PanelStore {
 
     /** Redraws every widget without fetching anything, e.g. after appearance settings change. */
     suspend fun redraw(context: Context) {
-        val widget = HomePanelWidget()
         val now = System.currentTimeMillis()
-        for (id in GlanceAppWidgetManager(context).getGlanceIds(HomePanelWidget::class.java)) {
+        for ((widget, id) in placed(context)) {
             updateAppWidgetState(context, id) { it[REDRAW] = now }
             widget.update(context, id)
         }
@@ -109,16 +121,19 @@ object PanelStore {
      * Returns how many widgets were updated.
      */
     suspend fun refreshAll(context: Context, includeHa: Boolean = true, forceWeather: Boolean = false): Int {
-        val widget = HomePanelWidget()
-        val ids = GlanceAppWidgetManager(context).getGlanceIds(HomePanelWidget::class.java)
-        if (ids.isEmpty()) return 0
+        val all = placed(context)
         val snapshot = CalendarSource.load(context)
         val ha = if (includeHa) HaRepository.refresh(context, forceWeather) else HaRepository.cached(context)
         val haJson = json.encodeToString(HaSnapshot.serializer(), ha)
         // Claude rides along with the Home Assistant refresh (periodic, manual), not calendar edits.
         val claude = if (includeHa) runCatching { ClaudeUsage.refresh(context) }.getOrElse { ClaudeUsage.cached(context) }
         else ClaudeUsage.cached(context)
-        for (id in ids) {
+        // Notifications work without any widget placed.
+        if (includeHa) {
+            Alerts.weatherChanged(context, ha)
+            Alerts.claudeChecked(context, claude)
+        }
+        for ((widget, id) in all) {
             updateAppWidgetState(context, id) {
                 putCalendar(it, snapshot)
                 it[HA] = haJson
@@ -126,7 +141,7 @@ object PanelStore {
             }
             widget.update(context, id)
         }
-        Log.i("HomePanel", "Calendar: ${snapshot.events.size} events, permission=${snapshot.hasPermission}, widgets=${ids.size}")
-        return ids.size
+        Log.i("HomePanel", "Calendar: ${snapshot.events.size} events, permission=${snapshot.hasPermission}, widgets=${all.size}")
+        return all.size
     }
 }

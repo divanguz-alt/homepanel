@@ -71,6 +71,23 @@ Material You takes what the system gives and changes on the next redraw). AMOLED
 `Palette`, which the widgets point at the chosen theme before composing. The grid's vertical
 hairline nine-patch is tinted. The car map bitmap is not themed.
 
+## Layout, small widgets, notifications, backup
+
+- Settings → Layout: zone order (arrows), each zone on/off, car and Claude halves on/off and swapped
+  (`Look.order/hidden/swapGrid`, `Zones` in `widget/Look.kt`). The default is the layout above. With the
+  calendar hidden nothing stretches; the empty part of the card goes at the bottom.
+- Small widgets (`widget/SmallWidgets.kt`): "HomePanel · Claude", "· Car", "· Weather", one zone each in the
+  same card. They share the panel's Glance state; `PanelStore.placed()` lists every data widget class, so
+  any new widget class must be added to `PanelStore.kinds` and `Preview.publishOnce`.
+- Notifications (`notify/Alerts.kt`, Settings → Notifications, all off by default): the temperature as a
+  silent ongoing notification whose small icon is the number drawn as a bitmap (status bar, lock screen;
+  AOD shows only icons); Claude limit warnings once per usage window (keyed by its reset time) and a note
+  when that window resets. Both run from the periodic refresh, so they work without any widget placed.
+- Settings → Backup: JSON export/import through the system file picker. The HA token and every Claude
+  session key are never written or read.
+- Settings screen type: system font, Material's 0.5sp tracking removed (`Type`, `T()` in SettingsUi.kt),
+  SemiBold titles, Medium row titles, coloured line icons per section (`Hues`).
+
 ## Language, rain, location
 
 Widget text lives in `widget/Texts.kt` (English / Croatian, Settings → Appearance → Widget language;
