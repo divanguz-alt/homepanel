@@ -12,6 +12,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -80,6 +81,7 @@ import hr.divanguz.homepanel.weather.WeatherProvider
 import hr.divanguz.homepanel.widget.Conditions
 import hr.divanguz.homepanel.widget.Look
 import hr.divanguz.homepanel.widget.PanelStore
+import hr.divanguz.homepanel.widget.Themes
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -266,7 +268,7 @@ private fun MainPage(
     }
     Spacer(Modifier.height(16.dp))
     Grouped {
-        Item(tr("Appearance"), Summary(if (Settings.get(LocalContext.current).look().designB) tr("Design B · sizes") else tr("Design A · sizes")), onClick = { open(Page.Appearance) })
+        Item(tr("Appearance"), Settings.get(LocalContext.current).look().let { l -> Summary((if (l.designB) tr("Design B") else tr("Design A")) + " · " + themeText(l.theme).first + " · " + tr("sizes")) }, onClick = { open(Page.Appearance) })
         Item(
             tr("Background refresh"),
             if (batteryOk) Summary(tr("Unrestricted")) else Summary(tr("Optimized by the system · tap to allow"), warn = true),
@@ -938,6 +940,9 @@ private fun AppearancePage(store: Settings) {
             if (i == 0) Divider()
         }
     }
+    Spacer(Modifier.height(16.dp))
+    SectionLabel(tr("Theme"))
+    ThemeChooser(look.theme) { save(look.copy(theme = it)) }
     if (look.designB) {
         var showDate by remember { mutableStateOf(store.showDate) }
         Spacer(Modifier.height(16.dp))
@@ -963,8 +968,59 @@ private fun AppearancePage(store: Settings) {
     Spacer(Modifier.height(12.dp))
     Text(
         tr("Reset sizes"), color = Accent, fontSize = 15.sp,
-        modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { save(Look(designB = look.designB)) }.padding(10.dp),
+        modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { save(Look(designB = look.designB, theme = look.theme)) }.padding(10.dp),
     )
+}
+
+/** Name and one line for each theme in [Themes.ids]. */
+private fun themeText(id: String): Pair<String, String> = when (id) {
+    Themes.MIDNIGHT -> tr("Midnight") to tr("Blue-grey, the original")
+    Themes.MATERIAL_YOU -> "Material You" to tr("Dark tones from your wallpaper")
+    "graphite" -> tr("Graphite") to tr("Neutral grey, no tint")
+    "amoled" -> tr("AMOLED black") to tr("Pure black, blends into a black wallpaper")
+    Themes.GLASS -> tr("Glass") to tr("See-through, the wallpaper shows behind")
+    "moss" -> tr("Moss") to tr("Deep forest green")
+    "espresso" -> tr("Espresso") to tr("Warm brown with cream text")
+    "indigo" -> tr("Indigo") to tr("Deep night blue")
+    "wine" -> tr("Wine") to tr("Dark burgundy")
+    "phosphor" -> tr("Phosphor") to tr("Black with green text, like an old terminal")
+    else -> id to ""
+}
+
+@Composable
+private fun ThemeChooser(selected: String, onPick: (String) -> Unit) {
+    val context = LocalContext.current
+    Grouped {
+        Themes.ids.forEachIndexed { i, id ->
+            val t = Themes.resolve(context, id)
+            val (name, line) = themeText(id)
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { onPick(id) }.padding(start = 14.dp, end = 10.dp, top = 10.dp, bottom = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                // A tiny card in the theme's own colours.
+                Box(
+                    modifier = Modifier.size(width = 52.dp, height = 38.dp)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(t.card)
+                        .border(1.dp, t.hair, RoundedCornerShape(10.dp))
+                        .padding(horizontal = 7.dp, vertical = 5.dp),
+                ) {
+                    Text("16°", fontSize = 15.sp, color = t.ink, modifier = Modifier.align(Alignment.TopStart))
+                    Box(Modifier.align(Alignment.BottomStart).fillMaxWidth().height(3.dp).clip(RoundedCornerShape(2.dp)).background(t.track)) {
+                        Box(Modifier.fillMaxWidth(0.55f).height(3.dp).background(t.ink2))
+                    }
+                }
+                Spacer(Modifier.width(14.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(name, fontSize = 17.sp, color = Ink)
+                    Text(line, fontSize = 14.sp, color = Ink2)
+                }
+                RadioButton(selected = selected == id, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = Accent, unselectedColor = Ink3))
+            }
+            if (i < Themes.ids.lastIndex) Divider()
+        }
+    }
 }
 
 // ---- building blocks -------------------------------------------------------------------------

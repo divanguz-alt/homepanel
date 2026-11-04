@@ -74,7 +74,9 @@ class HomePanelWidget : GlanceAppWidget() {
         val calendar = Preview.calendar(context)
         provideContent {
             val texts = Texts.of(Settings.get(context).language)
-            CompositionLocalProvider(LocalLook provides Settings.get(context).look(), LocalTexts provides texts) {
+            val look = Settings.get(context).look()
+            Palette.use(context, look.theme)
+            CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts) {
                 Panel(panelState(ha, haConfigured = true, claude = claude, claudeBusy = false, carName = Settings.get(context).carName, texts = texts), calendar)
             }
         }
@@ -95,7 +97,9 @@ class HomePanelWidget : GlanceAppWidget() {
             // Reading the redraw stamp makes appearance changes recompose even when no data changed.
             PanelStore.redrawStamp(prefs)
             val texts = Texts.of(settings.language)
-            CompositionLocalProvider(LocalLook provides settings.look(), LocalTexts provides texts) {
+            val look = settings.look()
+            Palette.use(context, look.theme)
+            CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts) {
                 val state = panelState(
                     PanelStore.ha(prefs), settings.ha().isConfigured,
                     PanelStore.claude(prefs), PanelStore.claudeBusy(prefs),
@@ -369,7 +373,8 @@ private fun BottomGrid(state: PanelState, context: Context) {
         modifier = GlanceModifier
             .fillMaxWidth()
             .height(gridHeight)
-            .background(ImageProvider(R.drawable.grid_divider), ContentScale.FillBounds),
+            // Tinted, so the hairline follows the theme.
+            .background(ImageProvider(R.drawable.grid_divider), ContentScale.FillBounds, ColorFilter.tint(ColorProvider(Palette.hair))),
     ) {
         CarZone(state.car, state.haConfigured, context, GlanceModifier.defaultWeight(), width = columnWidth, height = gridHeight)
         ClaudeZone(state.claude, context, GlanceModifier.defaultWeight(), barWidth = columnWidth - 34.dp)

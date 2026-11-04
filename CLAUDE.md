@@ -61,6 +61,15 @@ and zoom, car lock entity. Official warnings: DHMZ CAP feeds (`meteo.hr/upozoren
 matched to the county from a Croatian reverse geocode; shown only while DHMZ is the weather source
 (settings say so). The car label shows a padlock (closed grey / open amber) when a lock entity exists.
 
+## Themes
+
+Settings → Appearance → Theme: Midnight (default, the colours above), Material You (system dark
+neutrals from the wallpaper), Graphite, AMOLED black, Glass (translucent card), Moss, Espresso,
+Indigo, Wine, Phosphor. Built from OKLCH with the hue carried into the neutrals; tertiary text
+stays ≥ 5.5:1 on the card. Code: `widget/Palette.kt` (`Themes`); every colour goes through
+`Palette`, which the widgets point at the chosen theme before composing. The grid's vertical
+hairline nine-patch is tinted. The car map bitmap is not themed.
+
 ## Language, rain, location
 
 Widget text lives in `widget/Texts.kt` (English / Croatian, Settings → Appearance → Widget language;

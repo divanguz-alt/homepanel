@@ -17,6 +17,8 @@ data class Look(
     val bottom: Float = 1f,
     /** Design B ("A2 · Siva karta" redesign) instead of the original layout. */
     val designB: Boolean = false,
+    /** Colour theme id from [Themes]. */
+    val theme: String = Themes.MIDNIGHT,
 )
 
 val LocalLook = staticCompositionLocalOf { Look() }

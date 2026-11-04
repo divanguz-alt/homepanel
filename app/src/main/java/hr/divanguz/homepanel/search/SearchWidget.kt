@@ -41,11 +41,17 @@ private val Radius = BarHeight / 2
 class SearchWidget : GlanceAppWidget() {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        provideContent { SearchBar(context) }
+        provideContent {
+            Palette.use(context, hr.divanguz.homepanel.settings.Settings.get(context).look().theme)
+            SearchBar(context)
+        }
     }
 
     override suspend fun providePreview(context: Context, widgetCategory: Int) {
-        provideContent { SearchBar(context) }
+        provideContent {
+            Palette.use(context, hr.divanguz.homepanel.settings.Settings.get(context).look().theme)
+            SearchBar(context)
+        }
     }
 }
 

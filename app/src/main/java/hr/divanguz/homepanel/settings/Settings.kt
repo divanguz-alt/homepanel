@@ -165,6 +165,7 @@ class Settings private constructor(private val prefs: SharedPreferences) {
             calendar = prefs.getFloat(LOOK_CALENDAR, d.calendar),
             bottom = prefs.getFloat(LOOK_BOTTOM, d.bottom),
             designB = prefs.getBoolean(LOOK_DESIGN_B, d.designB),
+            theme = prefs.getString(LOOK_THEME, null) ?: d.theme,
         )
     }
 
@@ -177,6 +178,7 @@ class Settings private constructor(private val prefs: SharedPreferences) {
             .putFloat(LOOK_CALENDAR, look.calendar)
             .putFloat(LOOK_BOTTOM, look.bottom)
             .putBoolean(LOOK_DESIGN_B, look.designB)
+            .putString(LOOK_THEME, look.theme)
             .apply()
     }
 
@@ -193,6 +195,7 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         private const val LOOK_CALENDAR = "look_calendar"
         private const val LOOK_BOTTOM = "look_bottom"
         private const val LOOK_DESIGN_B = "look_design_b"
+        private const val LOOK_THEME = "look_theme"
         private const val INTERNAL_URL = "ha_internal_url"
         private const val EXTERNAL_URL = "ha_external_url"
         private const val TOKEN = "ha_token"
