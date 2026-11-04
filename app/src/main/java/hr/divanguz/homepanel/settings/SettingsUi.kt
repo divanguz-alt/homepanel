@@ -88,6 +88,7 @@ import hr.divanguz.homepanel.widget.Conditions
 import hr.divanguz.homepanel.widget.Look
 import hr.divanguz.homepanel.widget.PanelStore
 import hr.divanguz.homepanel.widget.Themes
+import hr.divanguz.homepanel.widget.Zones
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -113,7 +114,7 @@ private val Scheme = darkColorScheme(
 
 private enum class Page(val title: String) {
     Main("HomePanel"), HomeAssistant("Home Assistant"), Weather("Weather"), Calendar("Calendar"), Car("Car"),
-    Claude("Claude"), Appearance("Appearance"), Updates("Updates")
+    Claude("Claude"), Appearance("Appearance"), Layout("Layout"), Updates("Updates")
 }
 
 /** Icon colours on the main page, one per section, toned to sit on the dark ground. */
@@ -285,6 +286,7 @@ private fun Screens(goHome: () -> Unit) {
             Page.Car -> CarPage(store, onChanged = { refresh() })
             Page.Claude -> ClaudePage(store, onChanged = { reload() })
             Page.Appearance -> AppearancePage(store)
+            Page.Layout -> LayoutPage(store)
             Page.Updates -> UpdatesPage(store)
         }
         Spacer(Modifier.height(40.dp))
@@ -322,6 +324,7 @@ private fun MainPage(
     Spacer(Modifier.height(16.dp))
     Grouped {
         Item(tr("Appearance"), Settings.get(LocalContext.current).look().let { l -> Summary((if (l.designB) tr("Design B") else tr("Design A")) + " · " + themeText(l.theme).first + " · " + tr("sizes")) }, onClick = { open(Page.Appearance) }, icon = R.drawable.ic_palette, hue = Hues.look)
+        Item(tr("Layout"), layoutSummary(Settings.get(LocalContext.current).look()), onClick = { open(Page.Layout) }, icon = R.drawable.ic_layout, hue = Hues.layout)
         Item(
             tr("Background refresh"),
             if (batteryOk) Summary(tr("Unrestricted")) else Summary(tr("Optimized by the system · tap to allow"), warn = true),
@@ -1022,8 +1025,100 @@ private fun AppearancePage(store: Settings) {
     Spacer(Modifier.height(12.dp))
     Text(
         tr("Reset sizes"), color = Accent, fontSize = 15.sp,
-        modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { save(Look(designB = look.designB, theme = look.theme)) }.padding(10.dp),
+        modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { save(look.resetSizes()) }.padding(10.dp),
     )
+}
+
+private fun zoneName(id: String) = when (id) {
+    Zones.WEATHER -> tr("Weather")
+    Zones.CALENDAR -> tr("Calendar")
+    Zones.GRID -> tr("Car and Claude")
+    Zones.CAR -> tr("Car")
+    else -> tr("Claude")
+}
+
+private fun layoutSummary(look: Look): Summary =
+    Summary(look.order.filter(look::shows).joinToString(" · ") { id ->
+        if (id != Zones.GRID) zoneName(id)
+        else listOf(Zones.CAR, Zones.CLAUDE).filter(look::shows).let { if (look.swapGrid) it.reversed() else it }
+            .joinToString(" + ") { zoneName(it) }.ifEmpty { zoneName(id) }
+    }.ifEmpty { tr("Everything hidden") })
+
+/** Order of the panel's zones (arrows), which ones show (switch), and the car/Claude halves. */
+@Composable
+private fun LayoutPage(store: Settings) {
+    val app = LocalContext.current.applicationContext
+    val scope = rememberCoroutineScope()
+    var look by remember { mutableStateOf(store.look()) }
+    fun save(next: Look) {
+        look = next
+        store.saveLook(next)
+        scope.launch { withContext(Dispatchers.IO) { runCatching { PanelStore.redraw(app) } } }
+    }
+    fun move(i: Int, by: Int) {
+        val order = look.order.toMutableList()
+        val j = i + by
+        if (j !in order.indices) return
+        order[i] = order[j].also { order[j] = order[i] }
+        save(look.copy(order = order))
+    }
+    fun show(id: String, on: Boolean) = save(look.copy(hidden = if (on) look.hidden - id else look.hidden + id))
+
+    SectionLabel(tr("From top to bottom"))
+    Grouped {
+        look.order.forEachIndexed { i, id ->
+            Row(
+                modifier = Modifier.fillMaxWidth().heightIn(min = 66.dp).padding(start = 18.dp, end = 16.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    T(zoneName(id), 17, if (look.shows(id)) Ink else Ink3, FontWeight.Medium)
+                    if (id == Zones.WEATHER && !look.shows(id)) {
+                        T(tr("Also hides the refresh button and the settings shortcut"), 13, Attention)
+                    }
+                }
+                Arrow(R.drawable.ic_arrow_up, enabled = i > 0) { move(i, -1) }
+                Arrow(R.drawable.ic_arrow_down, enabled = i < look.order.lastIndex) { move(i, 1) }
+                Spacer(Modifier.width(6.dp))
+                Switch(
+                    checked = look.shows(id), onCheckedChange = { show(id, it) },
+                    colors = SwitchDefaults.colors(checkedTrackColor = Accent, checkedThumbColor = Color(0xFF1A1206), uncheckedTrackColor = Hair, uncheckedThumbColor = Ink3, uncheckedBorderColor = Hair),
+                )
+            }
+            if (i < look.order.lastIndex) Divider()
+        }
+    }
+    Spacer(Modifier.height(20.dp))
+    SectionLabel(tr("Car and Claude"))
+    Grouped(padded = true) {
+        ToggleRow(tr("Car"), tr("Address, map and range"), look.shows(Zones.CAR)) { show(Zones.CAR, it) }
+        ToggleRow(tr("Claude"), tr("Usage bars"), look.shows(Zones.CLAUDE)) { show(Zones.CLAUDE, it) }
+        ToggleRow(
+            tr("Claude on the left"),
+            if (look.shows(Zones.CAR) && look.shows(Zones.CLAUDE)) tr("Swap the two halves") else tr("With one of them hidden, the other takes the whole width"),
+            look.swapGrid,
+        ) { save(look.copy(swapGrid = it)) }
+    }
+    Spacer(Modifier.height(12.dp))
+    T(
+        tr("A widget on the home screen can't be rearranged by dragging, so the order is set here. Small widgets with a single zone are in the widget list too."),
+        13, Ink3, modifier = Modifier.padding(horizontal = 18.dp),
+    )
+    Spacer(Modifier.height(8.dp))
+    T(
+        tr("Default layout"), 15, Accent,
+        modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { save(look.copy(order = Zones.DEFAULT_ORDER, hidden = emptySet(), swapGrid = false)) }.padding(10.dp),
+    )
+}
+
+@Composable
+private fun Arrow(res: Int, enabled: Boolean, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier.size(44.dp).clip(RoundedCornerShape(22.dp)).clickable(enabled = enabled, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Image(painterResource(res), null, colorFilter = ColorFilter.tint(if (enabled) Ink2 else Hair), modifier = Modifier.size(20.dp))
+    }
 }
 
 /** Name and one line for each theme in [Themes.ids]. */

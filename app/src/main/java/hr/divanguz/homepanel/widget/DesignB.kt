@@ -197,7 +197,7 @@ private fun ForecastDayB(day: ForecastDayState, main: ColorProvider, second: Col
 }
 
 @Composable
-internal fun CalendarZoneB(snapshot: CalendarSnapshot?, context: Context, modifier: GlanceModifier) {
+internal fun CalendarZoneB(snapshot: CalendarSnapshot?, context: Context, modifier: GlanceModifier, first: Boolean = false) {
     val calendarApp = launchIntent(context, Packages.CALENDAR)
     val texts = LocalTexts.current
     val view = snapshot?.takeIf { it.hasPermission }?.toView(locale = texts.locale, allDayLabel = texts.allDay)
@@ -205,7 +205,7 @@ internal fun CalendarZoneB(snapshot: CalendarSnapshot?, context: Context, modifi
     val today = LocalDate.now()
     val locale = texts.locale
 
-    Column(modifier = modifier.fillMaxWidth().padding(start = 18.dp, top = 4.dp, bottom = 12.dp)) {
+    Column(modifier = modifier.fillMaxWidth().padding(start = 18.dp, top = if (first) 14.dp else 4.dp, bottom = 12.dp)) {
         // The + target is 44dp and bleeds 11dp into the right padding, so the row ends 7dp from the edge.
         Row(
             modifier = GlanceModifier.fillMaxWidth().height(dz(44, k)).padding(end = 7.dp).opens(calendarApp),

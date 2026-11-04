@@ -134,23 +134,31 @@ private fun Panel(state: PanelState, calendar: CalendarSnapshot?) {
                     .cornerRadius(CardRadius - 1.dp),
             ) {
                 // Smaller widgets drop whole zones rather than squeezing them: the calendar goes first
-                // (it is the flexible part), then the car/Claude grid. Weather always stays.
+                // (it is the flexible part), then the car/Claude grid. Zones come in the order chosen in
+                // settings, and hidden ones are left out.
                 val height = LocalSize.current.height
-                val showGrid = height >= CompactGridMin
-                val showCalendar = height >= CompactCalendarMin
-                val designB = LocalLook.current.designB
-                if (designB) WeatherZoneB(state, context) else WeatherZone(state, context)
-                if (showCalendar) {
-                    HDivider()
-                    if (designB) CalendarZoneB(calendar, context, GlanceModifier.defaultWeight())
-                    else CalendarZone(calendar, context, GlanceModifier.defaultWeight())
-                } else {
-                    Spacer(GlanceModifier.defaultWeight())
+                val look = LocalLook.current
+                val gridHasContent = look.shows(Zones.CAR) || look.shows(Zones.CLAUDE)
+                val zones = look.order.filter { z ->
+                    look.shows(z) && when (z) {
+                        Zones.CALENDAR -> height >= CompactCalendarMin
+                        Zones.GRID -> gridHasContent && height >= CompactGridMin
+                        else -> true
+                    }
                 }
-                if (showGrid) {
-                    HDivider()
-                    BottomGrid(state, context)
+                val designB = look.designB
+                zones.forEachIndexed { i, zone ->
+                    if (i > 0) HDivider()
+                    when (zone) {
+                        Zones.WEATHER -> if (designB) WeatherZoneB(state, context) else WeatherZone(state, context)
+                        Zones.CALENDAR ->
+                            if (designB) CalendarZoneB(calendar, context, GlanceModifier.defaultWeight(), first = i == 0)
+                            else CalendarZone(calendar, context, GlanceModifier.defaultWeight(), first = i == 0)
+                        Zones.GRID -> BottomGrid(state, context)
+                    }
                 }
+                // Without a calendar nothing stretches; the empty part of the card goes at the bottom.
+                if (Zones.CALENDAR !in zones) Spacer(GlanceModifier.defaultWeight())
             }
         }
     }
@@ -282,14 +290,15 @@ private fun WeatherNow(
 }
 
 @Composable
-private fun CalendarZone(snapshot: CalendarSnapshot?, context: Context, modifier: GlanceModifier) {
+private fun CalendarZone(snapshot: CalendarSnapshot?, context: Context, modifier: GlanceModifier, first: Boolean = false) {
     val calendarApp = launchIntent(context, Packages.CALENDAR)
     val view: CalendarView? = snapshot?.takeIf { it.hasPermission }?.toView(locale = LocalTexts.current.locale, allDayLabel = LocalTexts.current.allDay)
     val k = LocalLook.current.calendar
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(start = 20.dp, top = 12.dp, end = 20.dp, bottom = 4.dp),
+            // At the top of the card it needs the same breathing room as the weather zone.
+            .padding(start = 20.dp, top = if (first) 18.dp else 12.dp, end = 20.dp, bottom = 4.dp),
     ) {
         Row(
             modifier = GlanceModifier.fillMaxWidth().height(dz(32, k)).opens(calendarApp),
@@ -371,20 +380,23 @@ private fun EventItem(row: EventRow, isLast: Boolean) {
 
 @Composable
 private fun BottomGrid(state: PanelState, context: Context) {
+    val look = LocalLook.current
+    val car = look.shows(Zones.CAR)
+    val claude = look.shows(Zones.CLAUDE)
+    val both = car && claude
     // Card is the widget width minus the two 1dp border insets; the grid splits it around a 1dp hairline.
-    val columnWidth = (LocalSize.current.width - 2.dp) / 2
-    val gridHeight = GridHeight * LocalLook.current.bottom
+    val columnWidth = (LocalSize.current.width - 2.dp).let { if (both) it / 2 else it }
+    val gridHeight = GridHeight * look.bottom
     // The vertical hairline is a nine-patch centred in the row's background: a fillMaxHeight child
     // would stretch the row to the whole widget height. Equal-weight columns meet exactly at the centre.
-    Row(
-        modifier = GlanceModifier
-            .fillMaxWidth()
-            .height(gridHeight)
-            // Tinted, so the hairline follows the theme.
-            .background(ImageProvider(R.drawable.grid_divider), ContentScale.FillBounds, ColorFilter.tint(ColorProvider(Palette.hair))),
-    ) {
-        CarZone(state.car, state.haConfigured, context, GlanceModifier.defaultWeight(), width = columnWidth, height = gridHeight)
-        ClaudeZone(state.claude, context, GlanceModifier.defaultWeight(), barWidth = columnWidth - 34.dp)
+    var row = GlanceModifier.fillMaxWidth().height(gridHeight)
+    // Tinted, so the hairline follows the theme.
+    if (both) row = row.background(ImageProvider(R.drawable.grid_divider), ContentScale.FillBounds, ColorFilter.tint(ColorProvider(Palette.hair)))
+    Row(modifier = row) {
+        val claudeLeft = both && look.swapGrid
+        if (claudeLeft) ClaudeZone(state.claude, context, GlanceModifier.defaultWeight(), barWidth = columnWidth - 34.dp, atLeftEdge = true)
+        if (car) CarZone(state.car, state.haConfigured, context, GlanceModifier.defaultWeight(), width = columnWidth, height = gridHeight)
+        if (claude && !claudeLeft) ClaudeZone(state.claude, context, GlanceModifier.defaultWeight(), barWidth = columnWidth - 34.dp, atLeftEdge = !car)
     }
 }
 
@@ -518,10 +530,13 @@ private fun CarZoneRender(car: CarState?, haConfigured: Boolean, context: Contex
 }
 
 @Composable
-private fun ClaudeZone(claude: ClaudeState, context: Context, modifier: GlanceModifier, barWidth: Dp) {
+private fun ClaudeZone(claude: ClaudeState, context: Context, modifier: GlanceModifier, barWidth: Dp, atLeftEdge: Boolean = false) {
     val k = LocalLook.current.bottom
     val signIn = Intent(context, ClaudeLoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-    Column(modifier = modifier.padding(start = 14.dp, top = 10.dp, end = 20.dp, bottom = 10.dp)) {
+    // The wider inset goes on the card's edge, the narrower one beside the hairline.
+    val start = if (atLeftEdge) 20.dp else 14.dp
+    val end = if (atLeftEdge) 14.dp else 20.dp
+    Column(modifier = modifier.padding(start = start, top = 10.dp, end = end, bottom = 10.dp)) {
         // The title opens the Claude app; the bars below refresh usage. While a fetch runs, a small
         // spinner sits at the right edge of the title row.
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {

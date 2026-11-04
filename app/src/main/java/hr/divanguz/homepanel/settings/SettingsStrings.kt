@@ -12,6 +12,18 @@ internal object SettingsLanguage {
 
     val HR: Map<String, String> = mapOf(
         // Main page
+        // Layout
+        "Layout" to "Raspored",
+        "Everything hidden" to "Sve je skriveno",
+        "From top to bottom" to "Odozgo prema dolje",
+        "Also hides the refresh button and the settings shortcut" to "Skriva i tipku za osvježavanje i prečac do postavki",
+        "Address, map and range" to "Adresa, karta i doseg",
+        "Usage bars" to "Trake potrošnje",
+        "Claude on the left" to "Claude lijevo",
+        "Swap the two halves" to "Zamijeni dvije polovice",
+        "With one of them hidden, the other takes the whole width" to "Kad je jedno skriveno, drugo zauzme cijelu širinu",
+        "A widget on the home screen can't be rearranged by dragging, so the order is set here. Small widgets with a single zone are in the widget list too." to "Widget na početnom zaslonu ne može se presložiti povlačenjem, pa se redoslijed bira ovdje. Mali widgeti s jednom zonom su i u popisu widgeta.",
+        "Default layout" to "Zadani raspored",
         "Weather, calendar, car and Claude" to "Vrijeme, kalendar, auto i Claude",
         "Save" to "Spremi",
         "Save and go home" to "Spremi i na početni",
