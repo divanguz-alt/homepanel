@@ -132,7 +132,7 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         get() = prefs.getString(LANGUAGE, null) ?: "en"
         set(v) = prefs.edit().putString(LANGUAGE, v).apply()
 
-    /** Design B: today's date after the city ("Split • Tue 20 Oct"). */
+    /** Design B: today's date after the city ("City • Tue 20 Oct"). */
     var showDate: Boolean
         get() = prefs.getBoolean(SHOW_DATE, false)
         set(v) = prefs.edit().putBoolean(SHOW_DATE, v).apply()

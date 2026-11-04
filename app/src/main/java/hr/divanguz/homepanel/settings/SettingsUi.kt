@@ -43,7 +43,13 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.res.painterResource
+import androidx.compose.foundation.Image
+import androidx.compose.ui.graphics.ColorFilter
+import hr.divanguz.homepanel.R
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -110,12 +116,59 @@ private enum class Page(val title: String) {
     Claude("Claude"), Appearance("Appearance"), Updates("Updates")
 }
 
+/** Icon colours on the main page, one per section, toned to sit on the dark ground. */
+private object Hues {
+    val ha = Color(0xFF6AAEE8)
+    val weather = Color(0xFFF0C25A)
+    val calendar = Color(0xFFE8786C)
+    val car = Color(0xFF6CC3A0)
+    val claude = Color(0xFFE0956A)
+    val look = Color(0xFFB693EA)
+    val layout = Color(0xFF62C6D4)
+    val alerts = Color(0xFFEBA85A)
+    val battery = Color(0xFF9CCB6A)
+    val updates = Color(0xFF8AA6F2)
+    val backup = Color(0xFFA3A9B5)
+}
+
 /** A row summary; [warn] tints it when the user should act. */
 private data class Summary(val text: String, val warn: Boolean = false)
 
+/**
+ * Material 3's text styles track body text 0.5sp wide with a fixed 24sp line height, which made every
+ * line look loose and the big titles cramped. System font (it follows the One UI font setting), no extra
+ * tracking, line height in proportion to the size.
+ */
+private val Type: Typography = Typography().let { t ->
+    fun TextStyle.tight() = copy(letterSpacing = 0.sp, lineHeight = (fontSize.value * 1.3f).sp)
+    Typography(
+        displayLarge = t.displayLarge.tight(), displayMedium = t.displayMedium.tight(), displaySmall = t.displaySmall.tight(),
+        headlineLarge = t.headlineLarge.tight(), headlineMedium = t.headlineMedium.tight(), headlineSmall = t.headlineSmall.tight(),
+        titleLarge = t.titleLarge.tight(), titleMedium = t.titleMedium.tight(), titleSmall = t.titleSmall.tight(),
+        bodyLarge = t.bodyLarge.tight(), bodyMedium = t.bodyMedium.tight(), bodySmall = t.bodySmall.tight(),
+        labelLarge = t.labelLarge.tight(), labelMedium = t.labelMedium.tight(), labelSmall = t.labelSmall.tight(),
+    )
+}
+
+/** Plain text in the settings type: no tracking; line height follows [size]. */
+@Composable
+private fun T(
+    text: String,
+    size: Int,
+    color: Color = Ink,
+    weight: FontWeight = FontWeight.Normal,
+    modifier: Modifier = Modifier,
+    maxLines: Int = Int.MAX_VALUE,
+    align: androidx.compose.ui.text.style.TextAlign? = null,
+) = Text(
+    text, modifier = modifier, color = color, fontSize = size.sp, fontWeight = weight, maxLines = maxLines,
+    overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis, textAlign = align,
+    lineHeight = (size * 1.3f).sp, letterSpacing = 0.sp,
+)
+
 @Composable
 fun SettingsApp(goHome: () -> Unit) {
-    MaterialTheme(colorScheme = Scheme) {
+    MaterialTheme(colorScheme = Scheme, typography = Type) {
         Surface(modifier = Modifier.fillMaxSize(), color = Ground) { Screens(goHome) }
     }
 }
@@ -196,13 +249,13 @@ private fun Screens(goHome: () -> Unit) {
             .padding(horizontal = 14.dp),
     ) {
         if (page == Page.Main) {
-            Text(
-                "HomePanel", fontSize = 34.sp, fontWeight = FontWeight.Normal, color = Ink,
-                modifier = Modifier.padding(start = 10.dp, top = 72.dp, bottom = 4.dp),
+            T(
+                "HomePanel", 38, Ink, FontWeight.SemiBold,
+                modifier = Modifier.padding(start = 10.dp, top = 84.dp, bottom = 6.dp),
             )
-            Text(
-                lastRefresh ?: tr("Weather, calendar, car and Claude"), fontSize = 14.sp, color = Ink3,
-                modifier = Modifier.padding(start = 10.dp, bottom = 28.dp),
+            T(
+                lastRefresh ?: tr("Weather, calendar, car and Claude"), 15, Ink2,
+                modifier = Modifier.padding(start = 10.dp, bottom = 36.dp),
             )
         } else {
             PageHeader(tr(page.title)) { page = Page.Main; reload() }
@@ -260,20 +313,21 @@ private fun MainPage(
     }
     Spacer(Modifier.height(24.dp))
     Grouped {
-        Item(tr("Home Assistant"), ha, onClick = { open(Page.HomeAssistant) })
-        Item(tr("Weather"), weather, onClick = { open(Page.Weather) })
-        Item(tr("Calendar"), calendar, onClick = onCalendar)
-        Item(tr("Car"), car, onClick = { open(Page.Car) })
-        Item(tr("Claude"), claude, onClick = { open(Page.Claude) }, last = true)
+        Item(tr("Home Assistant"), ha, onClick = { open(Page.HomeAssistant) }, icon = R.drawable.ic_home, hue = Hues.ha)
+        Item(tr("Weather"), weather, onClick = { open(Page.Weather) }, icon = R.drawable.ic_wx_partly, hue = Hues.weather)
+        Item(tr("Calendar"), calendar, onClick = onCalendar, icon = R.drawable.ic_calendar, hue = Hues.calendar)
+        Item(tr("Car"), car, onClick = { open(Page.Car) }, icon = R.drawable.ic_car, hue = Hues.car)
+        Item(tr("Claude"), claude, onClick = { open(Page.Claude) }, last = true, icon = R.drawable.ic_spark, hue = Hues.claude)
     }
     Spacer(Modifier.height(16.dp))
     Grouped {
-        Item(tr("Appearance"), Settings.get(LocalContext.current).look().let { l -> Summary((if (l.designB) tr("Design B") else tr("Design A")) + " · " + themeText(l.theme).first + " · " + tr("sizes")) }, onClick = { open(Page.Appearance) })
+        Item(tr("Appearance"), Settings.get(LocalContext.current).look().let { l -> Summary((if (l.designB) tr("Design B") else tr("Design A")) + " · " + themeText(l.theme).first + " · " + tr("sizes")) }, onClick = { open(Page.Appearance) }, icon = R.drawable.ic_palette, hue = Hues.look)
         Item(
             tr("Background refresh"),
             if (batteryOk) Summary(tr("Unrestricted")) else Summary(tr("Optimized by the system · tap to allow"), warn = true),
             onClick = if (batteryOk) null else onBattery,
             last = true,
+            icon = R.drawable.ic_battery, hue = Hues.battery,
         )
     }
     Spacer(Modifier.height(16.dp))
@@ -284,10 +338,10 @@ private fun MainPage(
             ?.let { "${it.versionName} (${it.longVersionCode})" }.orEmpty()
     }
     Grouped {
-        Item(tr("Updates"), Summary(trf("Version %s · check GitHub for a newer one", version)), onClick = { open(Page.Updates) })
+        Item(tr("Updates"), Summary(trf("Version %s · check GitHub for a newer one", version)), onClick = { open(Page.Updates) }, icon = R.drawable.ic_download, hue = Hues.updates)
         Item(tr("Source on GitHub"), Summary("divanguz-alt/homepanel"), onClick = {
             context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(REPO_URL)).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
-        }, last = true)
+        }, last = true, icon = R.drawable.ic_code, hue = Ink2)
     }
     Text(
         "HomePanel $version", fontSize = 13.sp, color = Ink3,
@@ -482,7 +536,7 @@ private fun WeatherPage(store: Settings, onChanged: () -> Unit) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(p.label, fontSize = 17.sp, color = Ink)
+                    T(p.label, 17, Ink, FontWeight.Medium)
                     val r = readings[p]
                     Text(
                         r?.text ?: if (comparing) "…" else p.note,
@@ -932,8 +986,8 @@ private fun AppearancePage(store: Settings) {
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(t.first, fontSize = 17.sp, color = Ink)
-                    Text(t.second, fontSize = 14.sp, color = Ink2)
+                    T(t.first, 17, Ink, FontWeight.Medium)
+                    T(t.second, 14, Ink2)
                 }
                 RadioButton(selected = look.designB == b, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = Accent, unselectedColor = Ink3))
             }
@@ -947,7 +1001,7 @@ private fun AppearancePage(store: Settings) {
         var showDate by remember { mutableStateOf(store.showDate) }
         Spacer(Modifier.height(16.dp))
         Grouped(padded = true) {
-            ToggleRow(tr("Show date"), tr("Next to the city: \"Split • Tue 20 Oct\""), showDate) {
+            ToggleRow(tr("Show date"), tr("Next to the city: \"City • Tue 20 Oct\""), showDate) {
                 showDate = it
                 store.showDate = it
                 scope.launch { withContext(Dispatchers.IO) { runCatching { PanelStore.redraw(app) } } }
@@ -1013,8 +1067,8 @@ private fun ThemeChooser(selected: String, onPick: (String) -> Unit) {
                 }
                 Spacer(Modifier.width(14.dp))
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(name, fontSize = 17.sp, color = Ink)
-                    Text(line, fontSize = 14.sp, color = Ink2)
+                    T(name, 17, Ink, FontWeight.Medium)
+                    T(line, 14, Ink2)
                 }
                 RadioButton(selected = selected == id, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = Accent, unselectedColor = Ink3))
             }
@@ -1027,7 +1081,7 @@ private fun ThemeChooser(selected: String, onPick: (String) -> Unit) {
 
 @Composable
 private fun PageHeader(title: String, back: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 20.dp)) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)) {
         Box(
             modifier = Modifier.size(48.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = back),
             contentAlignment = Alignment.Center,
@@ -1039,13 +1093,14 @@ private fun PageHeader(title: String, back: () -> Unit) {
                 drawLine(Ink, Offset(w * 0.3f, w * 0.5f), Offset(w * 0.62f, w * 0.82f), stroke, StrokeCap.Round)
             }
         }
-        Text(title, fontSize = 26.sp, color = Ink, modifier = Modifier.padding(start = 4.dp))
     }
+    // One UI puts the page name large under the back arrow rather than beside it.
+    T(title, 32, weight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp, top = 8.dp, bottom = 24.dp))
 }
 
 @Composable
 private fun SectionLabel(text: String) {
-    Text(text, fontSize = 14.sp, color = Ink3, modifier = Modifier.padding(start = 10.dp, bottom = 8.dp))
+    T(text, 14, Ink2, FontWeight.SemiBold, modifier = Modifier.padding(start = 18.dp, top = 4.dp, bottom = 8.dp))
 }
 
 @Composable
@@ -1055,32 +1110,58 @@ private fun Grouped(padded: Boolean = false, content: @Composable ColumnScope.()
             .fillMaxWidth()
             .clip(RoundedCornerShape(26.dp))
             .background(Group)
-            .then(if (padded) Modifier.padding(horizontal = 16.dp, vertical = 12.dp) else Modifier),
+            .then(if (padded) Modifier.padding(horizontal = 18.dp, vertical = 12.dp) else Modifier),
         content = content,
     )
 }
 
+/** A row's icon: a line drawing in its own colour on a faint disc of the same colour. */
 @Composable
-private fun Item(title: String, summary: Summary?, onClick: (() -> Unit)?, last: Boolean = false, danger: Boolean = false) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .heightIn(min = 64.dp)
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
-            .padding(horizontal = 18.dp, vertical = 12.dp),
-        verticalAlignment = Alignment.CenterVertically,
+private fun RowIcon(res: Int, hue: Color) {
+    Box(
+        modifier = Modifier.size(38.dp).clip(RoundedCornerShape(19.dp)).background(hue.copy(alpha = 0.16f)),
+        contentAlignment = Alignment.Center,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontSize = 17.sp, color = if (danger) Danger else Ink)
-            summary?.let { Text(it.text, fontSize = 14.sp, color = if (it.warn) Attention else Ink2, maxLines = 2) }
-        }
+        Image(painterResource(res), null, colorFilter = ColorFilter.tint(hue), modifier = Modifier.size(21.dp))
     }
-    if (!last) Divider()
 }
 
 @Composable
-private fun Divider() {
-    Box(modifier = Modifier.padding(start = 18.dp, end = 18.dp).fillMaxWidth().height(1.dp).background(Hair))
+private fun Item(
+    title: String,
+    summary: Summary?,
+    onClick: (() -> Unit)?,
+    last: Boolean = false,
+    danger: Boolean = false,
+    icon: Int? = null,
+    hue: Color = Ink2,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .heightIn(min = 66.dp)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
+            .padding(start = if (icon != null) 16.dp else 18.dp, end = 18.dp, top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (icon != null) {
+            RowIcon(icon, hue)
+            Spacer(Modifier.width(16.dp))
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            T(title, 17, if (danger) Danger else Ink, FontWeight.Medium)
+            summary?.let {
+                Spacer(Modifier.height(2.dp))
+                T(it.text, 14, if (it.warn) Attention else Ink2, maxLines = 2)
+            }
+        }
+    }
+    if (!last) Divider(indent = if (icon != null) 70.dp else 18.dp)
+}
+
+@Composable
+private fun Divider(indent: androidx.compose.ui.unit.Dp = 18.dp) {
+    Box(modifier = Modifier.padding(start = indent, end = 18.dp).fillMaxWidth().height(1.dp).background(Hair))
 }
 
 @Composable
@@ -1093,7 +1174,7 @@ private fun Pill(text: String, filled: Boolean, enabled: Boolean, modifier: Modi
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(text, fontSize = 16.sp, fontWeight = FontWeight.Medium, color = if (filled) Color(0xFF1A1206) else Ink)
+        T(text, 16, if (filled) Color(0xFF1A1206) else Ink, FontWeight.SemiBold)
     }
 }
 
@@ -1101,7 +1182,7 @@ private fun Pill(text: String, filled: Boolean, enabled: Boolean, modifier: Modi
 @Composable
 private fun <T> Choice(label: String, options: List<Pair<T, String>>, selected: T, onSelect: (T) -> Unit) {
     Column(modifier = Modifier.padding(vertical = 8.dp)) {
-        Text(label, fontSize = 17.sp, color = Ink)
+        T(label, 17, Ink, FontWeight.Medium)
         Spacer(Modifier.height(10.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             options.forEach { (value, text) ->
@@ -1115,7 +1196,7 @@ private fun <T> Choice(label: String, options: List<Pair<T, String>>, selected: 
                         .clickable { onSelect(value) },
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(text, fontSize = 14.sp, color = if (on) Color(0xFF1A1206) else Ink2, fontWeight = if (on) FontWeight.Medium else FontWeight.Normal)
+                    T(text, 14, if (on) Color(0xFF1A1206) else Ink2, if (on) FontWeight.SemiBold else FontWeight.Normal, maxLines = 1)
                 }
             }
         }
@@ -1129,8 +1210,9 @@ private fun ToggleRow(title: String, summary: String, checked: Boolean, warn: Bo
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontSize = 17.sp, color = Ink)
-            Text(summary, fontSize = 14.sp, color = if (warn) Attention else Ink2)
+            T(title, 17, Ink, FontWeight.Medium)
+            Spacer(Modifier.height(2.dp))
+            T(summary, 14, if (warn) Attention else Ink2)
         }
         Spacer(Modifier.width(12.dp))
         Switch(
@@ -1152,8 +1234,8 @@ private fun SizeRow(
     var current by remember(value) { mutableStateOf(value) }
     Column(modifier = Modifier.padding(vertical = 6.dp)) {
         Row {
-            Text(label, fontSize = 17.sp, color = Ink, modifier = Modifier.weight(1f))
-            Text(format(current), fontSize = 15.sp, color = Ink2)
+            T(label, 17, Ink, FontWeight.Medium, modifier = Modifier.weight(1f))
+            T(format(current), 15, Ink2)
         }
         Slider(
             value = current, onValueChange = { current = it }, valueRange = range, onValueChangeFinished = { onDone(current) },

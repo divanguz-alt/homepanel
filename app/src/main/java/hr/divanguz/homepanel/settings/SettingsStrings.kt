@@ -191,7 +191,7 @@ internal object SettingsLanguage {
         "Date line, refresh button, rows with dividers" to "Red s datumom, tipka za osvježavanje, redovi s crtama",
         "Bigger weather, grouped calendar, grey map" to "Veće vrijeme, grupirani kalendar, siva karta",
         "Show date" to "Prikaži datum",
-        "Next to the city: \"Split • Tue 20 Oct\"" to "Uz grad: „Split • Uto 20 lis”",
+        "Next to the city: \"City • Tue 20 Oct\"" to "Uz grad: „Grad • Uto 20 lis”",
         "Sizes" to "Veličine",
         "Date and city" to "Datum i grad",
         "Temperature" to "Temperatura",
