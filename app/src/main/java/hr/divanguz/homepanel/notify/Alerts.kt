@@ -140,22 +140,39 @@ object Alerts {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val warnedFor = prefs.getLong("alert_claude_$key", 0L)
         val claude = launchIntent(context, Packages.CLAUDE)
-        if (warnedFor > 0 && now >= warnedFor) {
-            prefs.edit().remove("alert_claude_$key").apply()
-            post(context, id, if (hr) "$label se resetirao" else "$label has reset",
-                if (hr) "Claude je opet dostupan punim kapacitetom." else "Claude is fully available again.", claude)
-            return
+        when (decide(percent?.roundToInt(), resetsAt, warnedFor, now, threshold)) {
+            Step.RESET -> {
+                prefs.edit().remove("alert_claude_$key").apply()
+                post(context, id, if (hr) "Claude · $label se resetirao" else "Claude · $label has reset",
+                    if (hr) "Potrošnja za ovaj limit kreće od nule." else "Usage for this limit starts from zero again.", claude)
+            }
+            Step.WARN -> {
+                prefs.edit().putLong("alert_claude_$key", resetsAt).apply()
+                val left = resetsAt - now
+                val h = left / 3_600_000
+                val m = (left / 60_000) % 60
+                val span = if (h >= 24) "${h / 24}d ${h % 24}h" else if (h > 0) "${h}h ${m}m" else "${m}m"
+                post(context, id, "Claude · $label ${percent?.roundToInt()}%",
+                    if (hr) "Resetira se za $span" else "Resets in $span", claude)
+            }
+            Step.NONE -> Unit
         }
-        val p = percent?.roundToInt() ?: return
-        if (p >= threshold && resetsAt > now && warnedFor != resetsAt) {
-            prefs.edit().putLong("alert_claude_$key", resetsAt).apply()
-            val left = resetsAt - now
-            val h = left / 3_600_000
-            val m = (left / 60_000) % 60
-            val span = if (h >= 24) "${h / 24}d ${h % 24}h" else if (h > 0) "${h}h ${m}m" else "${m}m"
-            post(context, id, "Claude · $label $p%",
-                if (hr) "Resetira se za $span" else "Resets in $span", claude)
-        }
+    }
+
+    internal enum class Step { NONE, WARN, RESET }
+
+    /** Reset times from claude.ai wobble a little between fetches; windows are hours apart. */
+    private const val SAME_WINDOW_MS = 30 * 60_000L
+
+    /**
+     * What to do for one usage window. [warnedFor] is the reset time of the window last warned about
+     * (0 = none): once that time has passed the window has reset, which is announced once.
+     */
+    internal fun decide(percent: Int?, resetsAt: Long, warnedFor: Long, now: Long, threshold: Int): Step = when {
+        warnedFor > 0 && now >= warnedFor -> Step.RESET
+        percent == null || percent < threshold || resetsAt <= now -> Step.NONE
+        warnedFor > 0 && kotlin.math.abs(warnedFor - resetsAt) < SAME_WINDOW_MS -> Step.NONE
+        else -> Step.WARN
     }
 
     private fun post(context: Context, id: Int, title: String, text: String, intent: Intent?) {

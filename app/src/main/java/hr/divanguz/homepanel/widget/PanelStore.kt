@@ -122,6 +122,9 @@ object PanelStore {
      */
     suspend fun refreshAll(context: Context, includeHa: Boolean = true, forceWeather: Boolean = false): Int {
         val all = placed(context)
+        // Nothing to draw and nothing to notify: don't touch the network.
+        val settings = hr.divanguz.homepanel.settings.Settings.get(context)
+        if (all.isEmpty() && !settings.tempNotification && !settings.claudeAlerts) return 0
         val snapshot = CalendarSource.load(context)
         val ha = if (includeHa) HaRepository.refresh(context, forceWeather) else HaRepository.cached(context)
         val haJson = json.encodeToString(HaSnapshot.serializer(), ha)

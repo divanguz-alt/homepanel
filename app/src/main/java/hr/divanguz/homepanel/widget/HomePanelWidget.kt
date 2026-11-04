@@ -145,26 +145,34 @@ private fun Panel(state: PanelState, calendar: CalendarSnapshot?) {
                 val height = LocalSize.current.height
                 val look = LocalLook.current
                 val gridHasContent = look.shows(Zones.CAR) || look.shows(Zones.CLAUDE)
-                val zones = look.order.filter { z ->
-                    look.shows(z) && when (z) {
-                        Zones.CALENDAR -> height >= CompactCalendarMin
-                        Zones.GRID -> gridHasContent && height >= CompactGridMin
-                        else -> true
+                // A calendar that is switched on but doesn't fit leaves a stretching gap in its place, so
+                // the zones below it stay at the bottom; one switched off moves the gap to the end.
+                val gap = "gap"
+                val slots = look.order.filter(look::shows).mapNotNull { z ->
+                    when (z) {
+                        Zones.CALENDAR -> if (height >= CompactCalendarMin) z else gap
+                        Zones.GRID -> z.takeIf { gridHasContent && height >= CompactGridMin }
+                        else -> z
                     }
-                }
+                }.let { if (Zones.CALENDAR in it || gap in it) it else it + gap }
                 val designB = look.designB
-                zones.forEachIndexed { i, zone ->
-                    if (i > 0) HDivider()
+                var drawn = 0
+                slots.forEach { zone ->
+                    if (zone == gap) {
+                        Spacer(GlanceModifier.defaultWeight())
+                        return@forEach
+                    }
+                    if (drawn > 0) HDivider()
+                    val first = drawn == 0
+                    drawn++
                     when (zone) {
                         Zones.WEATHER -> if (designB) WeatherZoneB(state, context) else WeatherZone(state, context)
                         Zones.CALENDAR ->
-                            if (designB) CalendarZoneB(calendar, context, GlanceModifier.defaultWeight(), first = i == 0)
-                            else CalendarZone(calendar, context, GlanceModifier.defaultWeight(), first = i == 0)
+                            if (designB) CalendarZoneB(calendar, context, GlanceModifier.defaultWeight(), first = first)
+                            else CalendarZone(calendar, context, GlanceModifier.defaultWeight(), first = first)
                         Zones.GRID -> BottomGrid(state, context)
                     }
                 }
-                // Without a calendar nothing stretches; the empty part of the card goes at the bottom.
-                if (Zones.CALENDAR !in zones) Spacer(GlanceModifier.defaultWeight())
             }
     }
 }
