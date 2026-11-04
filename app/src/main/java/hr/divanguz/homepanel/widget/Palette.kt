@@ -18,6 +18,8 @@ data class WidgetTheme(
     val ink3: Color,
     /** The card's outer 1dp border; the inner dividers use [hair]. */
     val border: Color = hair,
+    /** Light background (dark text): the car map and accents switch to their light variants. */
+    val light: Boolean = false,
 )
 
 /**
@@ -29,12 +31,18 @@ object Themes {
     const val MIDNIGHT = "midnight"
     const val MATERIAL_YOU = "you"
     const val GLASS = "glass"
+    const val LIGHT = "light"
+    /** Light by day, Midnight at night, following the system's dark mode. */
+    const val AUTO = "auto"
 
     private fun c(hex: Long) = Color(0xFF000000 or hex)
 
     val midnight = WidgetTheme(MIDNIGHT, c(0x15181F), c(0x1C2029), c(0x262A33), c(0xECEEF2), c(0xA3A9B5), c(0x8A909C))
+    /** Tertiary text #585E6A keeps 6:1 on the card, like the dark themes. */
+    val light = WidgetTheme(LIGHT, c(0xF4F5F7), c(0xE2E5EA), c(0xD9DCE2), c(0x15181F), c(0x444A55), c(0x585E6A), light = true)
     private val fixed = listOf(
         midnight,
+        light,
         WidgetTheme("graphite", c(0x161616), c(0x202020), c(0x292929), c(0xEBEBEB), c(0xB1B1B1), c(0x929292)),
         WidgetTheme("amoled", c(0x000000), c(0x141414), c(0x1D1D1D), c(0xE8E8E8), c(0xABABAB), c(0x8C8C8C), border = c(0x000000)),
         // Wallpaper shows through a 78% veil: enough that tertiary text keeps 5.5:1 even over white.
@@ -47,7 +55,12 @@ object Themes {
     )
 
     /** In the order Settings lists them. */
-    val ids: List<String> = listOf(MIDNIGHT, MATERIAL_YOU) + fixed.drop(1).map { it.id }
+    val ids: List<String> = listOf(MIDNIGHT, AUTO, LIGHT, MATERIAL_YOU) + fixed.drop(2).map { it.id }
+
+    /** The system is in dark mode right now (system resources follow it even in a background worker). */
+    fun systemNight(): Boolean =
+        (android.content.res.Resources.getSystem().configuration.uiMode and android.content.res.Configuration.UI_MODE_NIGHT_MASK) ==
+            android.content.res.Configuration.UI_MODE_NIGHT_YES
 
     /** Material You: the system's dark tones from the wallpaper (Android 12+). */
     private fun materialYou(context: Context): WidgetTheme {
@@ -63,16 +76,40 @@ object Themes {
         )
     }
 
-    fun resolve(context: Context, id: String): WidgetTheme =
-        if (id == MATERIAL_YOU) runCatching { materialYou(context) }.getOrDefault(midnight)
-        else fixed.firstOrNull { it.id == id } ?: midnight
+    fun resolve(context: Context, id: String): WidgetTheme = when (id) {
+        MATERIAL_YOU -> runCatching { materialYou(context) }.getOrDefault(midnight)
+        AUTO -> if (systemNight()) midnight.copy(id = AUTO) else light.copy(id = AUTO)
+        else -> fixed.firstOrNull { it.id == id } ?: midnight
+    }
 }
 
 object Palette {
     @Volatile var theme: WidgetTheme = Themes.midnight
+    /** Auto theme: colours carry a day and a night value and the launcher picks one when it draws. */
+    @Volatile var auto: Boolean = false
+        private set
 
     /** Points the palette at the theme from settings; call at the start of each composition. */
-    fun use(context: Context, id: String) { theme = Themes.resolve(context, id) }
+    fun use(context: Context, id: String) {
+        theme = Themes.resolve(context, id)
+        auto = id == Themes.AUTO
+    }
+
+    private fun p(pick: (WidgetTheme) -> Color): ColorProvider =
+        if (auto) androidx.glance.color.ColorProvider(day = pick(Themes.light), night = pick(Themes.midnight))
+        else ColorProvider(pick(theme))
+
+    val cardP get() = p { it.card }
+    /** Auto theme only: a veil in the card colour over the (neutral grey) car map, light by day, dark at night. */
+    val mapVeilP get() = androidx.glance.color.ColorProvider(
+        day = Themes.light.card.copy(alpha = 0.7f), night = Themes.midnight.card.copy(alpha = 0.7f),
+    )
+    val trackP get() = p { it.track }
+    val hairP get() = p { it.hair }
+    val borderP get() = p { it.border }
+    /** Blue for the chance of rain, darker on a light card. */
+    val rainP get() = if (auto) androidx.glance.color.ColorProvider(Color(0xFF2F6FB0), Color(0xFF7FB2E5))
+        else ColorProvider(if (theme.light) Color(0xFF2F6FB0) else Color(0xFF7FB2E5))
 
     val card get() = theme.card
     val track get() = theme.track
@@ -83,7 +120,7 @@ object Palette {
     val ink3 get() = theme.ink3
     val accent = Color(0xFFF2A65A)
 
-    val inkP get() = ColorProvider(ink)
-    val ink2P get() = ColorProvider(ink2)
-    val ink3P get() = ColorProvider(ink3)
+    val inkP get() = p { it.ink }
+    val ink2P get() = p { it.ink2 }
+    val ink3P get() = p { it.ink3 }
 }

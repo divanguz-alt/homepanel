@@ -2,6 +2,7 @@ package hr.divanguz.homepanel.ha
 
 import android.content.Context
 import android.graphics.Bitmap
+import androidx.compose.ui.graphics.toArgb
 import android.graphics.BitmapFactory
 import android.graphics.Canvas
 import android.graphics.LinearGradient
@@ -63,10 +64,68 @@ object CarMap {
 
     fun load(context: Context, grey: Boolean = false): Bitmap? {
         val version = version(context) ?: return null
+        // Auto: one neutral grey map; the widget lays a day/night veil over it, so it fits either mode.
+        val theme = if (hr.divanguz.homepanel.widget.Palette.auto) NEUTRAL else hr.divanguz.homepanel.widget.Palette.theme
+        // Midnight (and Auto at night) keeps the map as designed; other themes get it in their colours.
+        if (theme.card != hr.divanguz.homepanel.widget.Themes.midnight.card) themed(context, version, theme)?.let { return it }
         memo[grey]?.let { (v, bmp) -> if (v == version) return bmp }
         val bmp = BitmapFactory.decodeFile(file(context, grey).path) ?: return null
         memo[grey] = version to bmp
         return bmp
+    }
+
+    private val NEUTRAL = hr.divanguz.homepanel.widget.Themes.midnight.copy(
+        id = "neutral",
+        card = androidx.compose.ui.graphics.Color(0xFF6E737C),
+        ink3 = androidx.compose.ui.graphics.Color(0xFFB4B9C2),
+    )
+
+    private fun baseFile(context: Context) = File(context.filesDir, "car_map_base.png")
+    private val themedMemo = java.util.concurrent.ConcurrentHashMap<String, Bitmap>()
+
+    /**
+     * The map in [theme]'s colours, made from the plain snapshot kept at render time: its brightness
+     * mapped from the card colour (background) towards the tertiary text colour (roads, labels). Kept
+     * in memory per map version and theme. Null until a snapshot exists (maps from older versions get
+     * one at the next refresh).
+     */
+    private fun themed(context: Context, version: String, theme: hr.divanguz.homepanel.widget.WidgetTheme): Bitmap? {
+        val key = "$version|${theme.card.toArgb()}|${theme.ink3.toArgb()}"
+        themedMemo[key]?.let { return it }
+        val base = BitmapFactory.decodeFile(baseFile(context).path)
+        if (base == null) {
+            invalidate(context)
+            return null
+        }
+        val card = theme.card.toArgb() or 0xFF000000.toInt()
+        val ink = theme.ink3.toArgb()
+        val out = compose(duotone(base, card, ink, if (theme.light) 0.38f else 0.55f), CarImage.load(context),
+            callout = (card and 0x00FFFFFF) or 0xF2000000.toInt(), shade = card)
+        themedMemo.clear()
+        themedMemo[key] = out
+        return out
+    }
+
+    private fun duotone(src: Bitmap, low: Int, high: Int, strength: Float): Bitmap {
+        val w = src.width
+        val h = src.height
+        val px = IntArray(w * h)
+        src.getPixels(px, 0, w, 0, 0, w, h)
+        val lum = FloatArray(px.size) { i ->
+            val c = px[i]
+            (0.299f * ((c shr 16) and 255) + 0.587f * ((c shr 8) and 255) + 0.114f * (c and 255)) / 255f
+        }
+        // Stretch between the 2nd and 98th percentile so every style uses the whole ramp.
+        val sorted = lum.copyOf().also { it.sort() }
+        val lo = sorted[(sorted.size * 0.02f).toInt()]
+        val hi = sorted[(sorted.size * 0.98f).toInt()].coerceAtLeast(lo + 0.01f)
+        fun ch(c: Int, s: Int) = (c shr s) and 255
+        for (i in px.indices) {
+            val t = ((lum[i] - lo) / (hi - lo)).coerceIn(0f, 1f) * strength
+            fun mix(s: Int) = (ch(low, s) + (ch(high, s) - ch(low, s)) * t).toInt().coerceIn(0, 255)
+            px[i] = (0xFF shl 24) or (mix(16) shl 16) or (mix(8) shl 8) or mix(0)
+        }
+        return Bitmap.createBitmap(px, w, h, Bitmap.Config.ARGB_8888)
     }
 
     /** Forgets the rendered map so the next refresh draws it again (after a style or zoom change). */
@@ -83,6 +142,9 @@ object CarMap {
         val (lat, lon) = coordinates(client, s) ?: return "no coordinates in ${s.locationEntity}"
         val sharp = snapshot(context, lat, lon) ?: return "map could not be rendered (offline?)"
         val car = CarImage.load(context)
+        // The plain snapshot, for the themed variants made at draw time.
+        runCatching { baseFile(context).outputStream().use { sharp.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+        themedMemo.clear()
         val maps = listOf(
             false to compose(sharp, car, callout = 0xF21C2029.toInt()),
             true to compose(greyed(sharp), car, callout = 0xFF0E0F11.toInt()),
@@ -133,7 +195,7 @@ object CarMap {
         return out
     }
 
-    private fun compose(sharp: Bitmap, car: Bitmap?, callout: Int): Bitmap {
+    private fun compose(sharp: Bitmap, car: Bitmap?, callout: Int, shade: Int = 0xFF15181F.toInt()): Bitmap {
         val tipX = W * TIP_X
         val tipY = H * TIP_Y
 
@@ -148,7 +210,8 @@ object CarMap {
         })
         c.restoreToCount(layer)
         c.drawRect(0f, 0f, W.toFloat(), H.toFloat(), Paint().apply {
-            shader = LinearGradient(0f, 0f, W * 0.5f, 0f, 0x8015181F.toInt(), 0x0015181F, Shader.TileMode.CLAMP)
+            val rgb = shade and 0x00FFFFFF
+            shader = LinearGradient(0f, 0f, W * 0.5f, 0f, rgb or 0x80000000.toInt(), rgb, Shader.TileMode.CLAMP)
         })
 
         drawPin(c, tipX, tipY, car, callout)

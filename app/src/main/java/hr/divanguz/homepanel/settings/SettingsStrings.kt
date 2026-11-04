@@ -38,6 +38,12 @@ internal object SettingsLanguage {
         "The file holds your Home Assistant addresses and entity names, so keep it somewhere private." to "Datoteka sadrži adrese Home Assistanta i nazive entiteta, pa je čuvaj na privatnom mjestu.",
         "Next hours" to "Idući sati",
         "Six hours under the weather: temperature, and the chance of rain from 20%" to "Šest sati ispod vremena: temperatura i vjerojatnost kiše od 20 %",
+        "Shown on the widget" to "Prikazano na widgetu",
+        "Day and night" to "Dan i noć",
+        "Light by day, Midnight at night, with the system's dark mode" to "Svijetla danju, Midnight noću, prema tamnom načinu sustava",
+        "Light grey card with dark text" to "Svijetlosiva kartica s tamnim tekstom",
+        "Last updated" to "Zadnje osvježeno",
+        "Nothing fetched yet" to "Još ništa nije dohvaćeno",
         // Layout
         "Layout" to "Raspored",
         "Everything hidden" to "Sve je skriveno",

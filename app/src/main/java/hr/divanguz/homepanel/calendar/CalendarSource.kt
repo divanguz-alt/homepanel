@@ -39,7 +39,34 @@ data class CalendarSnapshot(
     val loadedAt: Long,
 )
 
+/** A calendar the phone syncs, for choosing which ones the widget shows. */
+data class CalendarInfo(val id: Long, val name: String, val account: String, val color: Int?)
+
 object CalendarSource {
+    /** Calendars Android shows (visible), grouped by account. */
+    fun calendars(context: Context): List<CalendarInfo> {
+        if (!hasPermission(context)) return emptyList()
+        val out = mutableListOf<CalendarInfo>()
+        runCatching {
+            context.contentResolver.query(
+                android.provider.CalendarContract.Calendars.CONTENT_URI,
+                arrayOf(
+                    android.provider.CalendarContract.Calendars._ID,
+                    android.provider.CalendarContract.Calendars.CALENDAR_DISPLAY_NAME,
+                    android.provider.CalendarContract.Calendars.ACCOUNT_NAME,
+                    android.provider.CalendarContract.Calendars.CALENDAR_COLOR,
+                ),
+                "${android.provider.CalendarContract.Calendars.VISIBLE} = 1", null,
+                "${android.provider.CalendarContract.Calendars.ACCOUNT_NAME}, ${android.provider.CalendarContract.Calendars.CALENDAR_DISPLAY_NAME}",
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    out += CalendarInfo(c.getLong(0), c.getString(1).orEmpty(), c.getString(2).orEmpty(), if (c.isNull(3)) null else c.getInt(3))
+                }
+            }
+        }
+        return out
+    }
+
     private const val MAX_EVENTS = 60
 
     fun hasPermission(context: Context): Boolean =
@@ -62,14 +89,16 @@ object CalendarSource {
         }.build()
         val projection = arrayOf(
             Instances.EVENT_ID, Instances.BEGIN, Instances.END, Instances.ALL_DAY, Instances.TITLE,
-            Instances.DISPLAY_COLOR,
+            Instances.DISPLAY_COLOR, Instances.CALENDAR_ID,
         )
+        val hidden = Settings.get(context).hiddenCalendars
         val events = mutableListOf<CalEvent>()
         try {
             context.contentResolver.query(
                 uri, projection, "${Instances.VISIBLE} = 1", null, "${Instances.BEGIN} ASC",
             )?.use { c ->
                 while (c.moveToNext()) {
+                    if (c.getLong(6) in hidden) continue
                     val e = CalEvent(
                         eventId = c.getLong(0),
                         begin = c.getLong(1),

@@ -100,6 +100,11 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         get() = prefs.getInt(CALENDAR_DAYS, 14)
         set(v) = prefs.edit().putInt(CALENDAR_DAYS, v).apply()
 
+    /** Calendars (CalendarContract ids) left out of the widget. */
+    var hiddenCalendars: Set<Long>
+        get() = prefs.getString(HIDDEN_CALENDARS, null).orEmpty().split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
+        set(v) = prefs.edit().putString(HIDDEN_CALENDARS, v.joinToString(",")).apply()
+
     /** Weather is fetched at most this often (minutes), unless refreshed by hand or after a move. */
     var weatherEveryMin: Int
         get() = prefs.getInt(WEATHER_EVERY_MIN, 60)
@@ -295,6 +300,7 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         private const val LANGUAGE = "widget_language"
         private const val SHOW_RAIN = "show_rain_nowcast"
         private const val SHOW_HOURLY = "show_hourly"
+        private const val HIDDEN_CALENDARS = "hidden_calendars"
         private const val GITHUB_TOKEN = "github_token"
         private const val MAP_ZOOM = "map_zoom"
         private const val TEMP_NOTIFICATION = "temp_notification"

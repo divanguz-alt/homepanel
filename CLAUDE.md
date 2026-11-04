@@ -92,6 +92,22 @@ hairline nine-patch is tinted. The car map bitmap is not themed.
   Glance API) into RemoteViews hosted in an `AndroidView`; taps on it are swallowed. The calendar's
   LazyColumn rows don't render in that preview.
 
+## Hourly strip, calendars, light themes
+
+- "Next hours" (Weather settings, on by default): six hours from Open-Meteo's hourly forecast, fetched in
+  the same request as the rain nowcast (`RainNowcast.hours`). Shown only when the panel is ≥ 470dp tall;
+  it raises the calendar's cut-off by 90dp so the grid never gets squeezed.
+- Calendar settings list the phone's calendars with switches (`Settings.hiddenCalendars`, filtered by
+  `Instances.CALENDAR_ID`).
+- Themes "Light" and "Day and night" (`Themes.AUTO`): Auto colours are Glance day/night ColorProviders
+  (`Palette.p`), so the launcher switches them the moment the system's dark mode changes. Anything drawn
+  as a bitmap can't switch, so the usage bar's track is a Box behind a fill-only bitmap and, in Auto,
+  the car map is a neutral grey with a day/night veil (`Palette.mapVeilP`) over it.
+- Car map per theme: the plain snapshot is kept (`car_map_base.png`) and re-coloured at draw time
+  (duotone from the card colour to tertiary text); Midnight keeps the original map.
+- Previews (picker, settings) can't host a LazyColumn: `LocalStaticList` makes the calendar a plain
+  column of the first rows. Settings → "Last updated" shows when weather, car and Claude last answered.
+
 ## Language, rain, location
 
 Widget text lives in `widget/Texts.kt` (English / Croatian, Settings → Appearance → Widget language;

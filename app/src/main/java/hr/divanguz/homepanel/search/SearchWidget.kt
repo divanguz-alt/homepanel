@@ -72,14 +72,14 @@ private fun SearchBar(context: Context) {
             modifier = GlanceModifier
                 .fillMaxWidth()
                 .height(BarHeight)
-                .background(Palette.border)
+                .background(Palette.borderP)
                 .cornerRadius(Radius)
                 .padding(1.dp),
         ) {
             Row(
                 modifier = GlanceModifier
                     .fillMaxSize()
-                    .background(Palette.card)
+                    .background(Palette.cardP)
                     .cornerRadius(Radius - 1.dp)
                     .clickable(actionStartActivity(Firefox.searchIntent(context)))
                     .padding(start = 18.dp, end = 1.dp),

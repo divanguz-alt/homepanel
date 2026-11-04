@@ -60,12 +60,25 @@ import hr.divanguz.homepanel.ha.CarImage
 import hr.divanguz.homepanel.ha.CarMap
 
 private val CardRadius = 28.dp
+
+/**
+ * Previews (picker, settings) can't host a scrolling list: there the calendar is a plain column of
+ * the first [STATIC_ROWS] events. Glance draws at most ten children per column.
+ */
+internal val LocalStaticList = androidx.compose.runtime.staticCompositionLocalOf { false }
+internal const val STATIC_ROWS = 9
 private val RowHeight = 52.dp
 /** Fixed so the car cell's map can be sized exactly; fits the Claude column's content. */
 private val GridHeight = 164.dp
 /** Below these widget heights the calendar, then the car/Claude grid, are left out. */
 private val CompactCalendarMin = 380.dp
 private val CompactGridMin = 300.dp
+/** The hourly strip needs this much height (with the grid), and pushes the calendar's threshold up by its own height. */
+private val HourlyMin = 470.dp
+private val HourlyHeight = 90.dp
+
+/** Whether this panel has room for the hourly strip; read by both designs' weather zones. */
+internal val LocalHourlyFits = androidx.compose.runtime.staticCompositionLocalOf { true }
 
 class HomePanelWidget : GlanceAppWidget() {
 
@@ -78,7 +91,7 @@ class HomePanelWidget : GlanceAppWidget() {
             val texts = Texts.of(Settings.get(context).language)
             val look = Settings.get(context).look()
             Palette.use(context, look.theme)
-            CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts) {
+            CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts, LocalStaticList provides true) {
                 Panel(panelState(ha, haConfigured = true, claude = claude, claudeBusy = false, carName = Settings.get(context).carName, texts = texts), calendar)
             }
         }
@@ -120,14 +133,14 @@ internal fun Card(content: @Composable () -> Unit) {
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(Palette.border)
+            .background(Palette.borderP)
             .cornerRadius(CardRadius)
             .padding(1.dp),
     ) {
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
-                .background(Palette.card)
+                .background(Palette.cardP)
                 .cornerRadius(CardRadius - 1.dp),
         ) { content() }
     }
@@ -146,7 +159,7 @@ suspend fun previewViews(context: Context, look: Look, size: androidx.compose.ui
     val calendar = Preview.calendar(context)
     return androidx.glance.appwidget.GlanceRemoteViews().compose(context, size) {
         Palette.use(context, look.theme)
-        CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts) {
+        CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts, LocalStaticList provides true) {
             Panel(panelState(ha, haConfigured = true, claude = claude, claudeBusy = false, carName = settings.carName, texts = texts), calendar)
         }
     }.remoteViews
@@ -166,10 +179,12 @@ private fun Panel(state: PanelState, calendar: CalendarSnapshot?) {
                 val gridHasContent = look.shows(Zones.CAR) || look.shows(Zones.CLAUDE)
                 // A calendar that is switched on but doesn't fit leaves a stretching gap in its place, so
                 // the zones below it stay at the bottom; one switched off moves the gap to the end.
+                val hourly = height >= HourlyMin && Settings.get(context).showHourly && state.weather?.hours?.isNotEmpty() == true
+                val calendarMin = if (hourly) CompactCalendarMin + HourlyHeight else CompactCalendarMin
                 val gap = "gap"
                 val slots = look.order.filter(look::shows).mapNotNull { z ->
                     when (z) {
-                        Zones.CALENDAR -> if (height >= CompactCalendarMin) z else gap
+                        Zones.CALENDAR -> if (height >= calendarMin) z else gap
                         Zones.GRID -> z.takeIf { gridHasContent && height >= CompactGridMin }
                         else -> z
                     }
@@ -185,7 +200,9 @@ private fun Panel(state: PanelState, calendar: CalendarSnapshot?) {
                     val first = drawn == 0
                     drawn++
                     when (zone) {
-                        Zones.WEATHER -> if (designB) WeatherZoneB(state, context) else WeatherZone(state, context)
+                        Zones.WEATHER -> CompositionLocalProvider(LocalHourlyFits provides hourly) {
+                            if (designB) WeatherZoneB(state, context) else WeatherZone(state, context)
+                        }
                         Zones.CALENDAR ->
                             if (designB) CalendarZoneB(calendar, context, GlanceModifier.defaultWeight(), first = first)
                             else CalendarZone(calendar, context, GlanceModifier.defaultWeight(), first = first)
@@ -269,7 +286,7 @@ private fun WeatherZone(state: PanelState, context: Context) {
 @Composable
 internal fun HourlyStrip(weather: WeatherState?, main: ColorProvider, second: ColorProvider) {
     val hours = weather?.hours.orEmpty()
-    if (hours.isEmpty() || !Settings.get(LocalContext.current).showHourly) return
+    if (hours.isEmpty() || !LocalHourlyFits.current || !Settings.get(LocalContext.current).showHourly) return
     val k = LocalLook.current.conditions
     Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 12.dp)) {
         Row(modifier = GlanceModifier.fillMaxWidth()) {
@@ -280,14 +297,13 @@ internal fun HourlyStrip(weather: WeatherState?, main: ColorProvider, second: Co
                     Icon(h.icon, dz(20, k), second)
                     Spacer(GlanceModifier.height(3.dp))
                     Label(h.temperature, sz(15, k), main)
-                    Label(h.rain ?: " ", sz(11, k), RainTint)
+                    Label(h.rain ?: " ", sz(11, k), Palette.rainP)
                 }
             }
         }
     }
 }
 
-private val RainTint = ColorProvider(Color(0xFF7FB2E5))
 
 /** One column per day: name, icon, then high and low side by side. */
 @Composable
@@ -379,6 +395,10 @@ private fun CalendarZone(snapshot: CalendarSnapshot?, context: Context, modifier
             )
             view == null -> MessageRow(LocalTexts.current.loading, calendarApp)
             view.rows.isEmpty() -> MessageRow(LocalTexts.current.nothingNext(Settings.get(context).calendarDays), calendarApp)
+            LocalStaticList.current -> Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
+                val shown = view.rows.take(STATIC_ROWS)
+                shown.forEach { row -> EventItem(row, isLast = row === shown.last()) }
+            }
             else -> LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
                 items(view.rows, itemId = { it.id }) { row ->
                     EventItem(row, isLast = row === view.rows.last())
@@ -448,7 +468,7 @@ private fun BottomGrid(state: PanelState, context: Context) {
     // would stretch the row to the whole widget height. Equal-weight columns meet exactly at the centre.
     var row = GlanceModifier.fillMaxWidth().height(gridHeight)
     // Tinted, so the hairline follows the theme.
-    if (both) row = row.background(ImageProvider(R.drawable.grid_divider), ContentScale.FillBounds, ColorFilter.tint(ColorProvider(Palette.hair)))
+    if (both) row = row.background(ImageProvider(R.drawable.grid_divider), ContentScale.FillBounds, ColorFilter.tint(Palette.hairP))
     Row(modifier = row) {
         val claudeLeft = both && look.swapGrid
         if (claudeLeft) ClaudeZone(state.claude, context, GlanceModifier.defaultWeight(), barWidth = columnWidth - 34.dp, atLeftEdge = true)
@@ -470,7 +490,7 @@ internal fun CarZone(
     val map = CarMap.load(context, grey = designB)
     val k = LocalLook.current.bottom
     // Design B: muted text on the grey map; address and range stay primary.
-    val onMap = if (designB) OnMapB else null
+    val onMap = if (designB && !Palette.theme.light) OnMapB else null
     if (map == null) {
         CarZoneRender(car, haConfigured, context, modifier, width)
         return
@@ -485,6 +505,7 @@ internal fun CarZone(
             contentScale = ContentScale.Crop,
             modifier = GlanceModifier.width(width).height(height),
         )
+        if (Palette.auto) Box(modifier = GlanceModifier.width(width).height(height).background(Palette.mapVeilP)) {}
         Column(modifier = GlanceModifier.fillMaxSize().padding(start = 20.dp, top = 10.dp, end = 18.dp, bottom = 10.dp)) {
             CarHeader(car, onMap)
             Spacer(GlanceModifier.height(2.dp))
@@ -525,7 +546,7 @@ private fun CarHeader(car: CarState?, tint: ColorProvider? = null) {
             Spacer(GlanceModifier.width(6.dp))
             Box(
                 modifier = GlanceModifier
-                    .background(Palette.track)
+                    .background(Palette.trackP)
                     .cornerRadius(6.dp)
                     .padding(horizontal = 6.dp, vertical = 1.dp),
             ) {
@@ -587,13 +608,17 @@ private fun CarZoneRender(car: CarState?, haConfigured: Boolean, context: Contex
 }
 
 @Composable
-internal fun ClaudeZone(claude: ClaudeState, context: Context, modifier: GlanceModifier, barWidth: Dp, atLeftEdge: Boolean = false) {
+internal fun ClaudeZone(claude: ClaudeState, context: Context, modifier: GlanceModifier, barWidth: Dp, atLeftEdge: Boolean = false, centered: Boolean = false) {
     val k = LocalLook.current.bottom
     val signIn = Intent(context, ClaudeLoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     // The wider inset goes on the card's edge, the narrower one beside the hairline.
     val start = if (atLeftEdge) 20.dp else 14.dp
     val end = if (atLeftEdge) 14.dp else 20.dp
-    Column(modifier = modifier.padding(start = start, top = 10.dp, end = end, bottom = 10.dp)) {
+    // In its own small widget the content sits in the middle instead of filling down from the top.
+    Column(
+        modifier = modifier.padding(start = start, top = 10.dp, end = end, bottom = 10.dp),
+        verticalAlignment = if (centered) Alignment.CenterVertically else Alignment.Top,
+    ) {
         // The title opens the Claude app; the bars below refresh usage. While a fetch runs, a small
         // spinner sits at the right edge of the title row.
         Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
@@ -610,12 +635,12 @@ internal fun ClaudeZone(claude: ClaudeState, context: Context, modifier: GlanceM
         }
         Spacer(GlanceModifier.height(dz(6, k)))
         when {
-            claude.needsLogin && claude.fiveHour == null -> Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight().opens(signIn)) {
+            claude.needsLogin && claude.fiveHour == null -> Column(modifier = GlanceModifier.fillMaxWidth().let { if (centered) it else it.defaultWeight() }.opens(signIn)) {
                 Label(LocalTexts.current.tapToSignIn, sz(18, k), Palette.inkP)
                 Label(LocalTexts.current.toShowUsage, sz(13, k), Palette.ink3P)
             }
             else -> Column(
-                modifier = GlanceModifier.fillMaxWidth().defaultWeight().let {
+                modifier = GlanceModifier.fillMaxWidth().let { if (centered) it else it.defaultWeight() }.let {
                     if (claude.needsLogin) it.opens(signIn) else it.clickable(actionRunCallback<ClaudeRefreshAction>())
                 },
             ) {
@@ -645,12 +670,16 @@ private fun Usage(line: UsageLine?, label: String, barWidth: Dp, claude: ClaudeS
     // how close the limit is. A bitmap rather than a gradient covered from the right: a see-through
     // theme (Glass) would show the gradient through the cover.
     val height = dz(6, k)
-    Image(
-        provider = ImageProvider(UsageBar.draw(LocalContext.current, track, height, percent ?: 0, Palette.track.toArgb())),
-        contentDescription = null,
-        contentScale = ContentScale.FillBounds,
-        modifier = GlanceModifier.width(track).height(height),
-    )
+    // The track is the box behind (so it follows a day/night theme); the bitmap holds only the fill and
+    // is transparent past it, which also keeps a see-through theme from showing the gradient.
+    Box(modifier = GlanceModifier.width(track).height(height).background(Palette.trackP).cornerRadius(height / 2)) {
+        Image(
+            provider = ImageProvider(UsageBar.draw(LocalContext.current, track, height, percent ?: 0, 0)),
+            contentDescription = null,
+            contentScale = ContentScale.FillBounds,
+            modifier = GlanceModifier.width(track).height(height),
+        )
+    }
     Spacer(GlanceModifier.height(dz(4, k)))
     val note = when {
         claude.needsLogin -> LocalTexts.current.signedOut
@@ -662,7 +691,7 @@ private fun Usage(line: UsageLine?, label: String, barWidth: Dp, claude: ClaudeS
 
 @Composable
 internal fun HDivider() {
-    Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp).background(Palette.hair)) {}
+    Box(modifier = GlanceModifier.fillMaxWidth().height(1.dp).background(Palette.hairP)) {}
 }
 
 @Composable

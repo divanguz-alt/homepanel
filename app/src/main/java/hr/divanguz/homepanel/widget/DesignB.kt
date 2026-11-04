@@ -234,20 +234,26 @@ internal fun CalendarZoneB(snapshot: CalendarSnapshot?, context: Context, modifi
             snapshot != null && !snapshot.hasPermission -> NoteB(texts.allowCalendar, k, settingsIntent(context))
             view == null -> NoteB(texts.loading, k, calendarApp)
             view.rows.isEmpty() -> NoteB(texts.nothingNext(Settings.get(context).calendarDays), k, calendarApp)
+            LocalStaticList.current -> Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight().padding(end = 18.dp)) {
+                view.rows.take(STATIC_ROWS).forEachIndexed { i, row -> EventB(view.rows, i, row, today, k, locale) }
+            }
             else -> LazyColumn(modifier = GlanceModifier.fillMaxWidth().defaultWeight().padding(end = 18.dp)) {
-                itemsIndexed(view.rows, itemId = { _, row -> row.id }) { i, row ->
-                    val firstOfDay = i == 0 || view.rows[i - 1].date != row.date
-                    // 2dp between events of a day, 10dp before a new day; not scaled by the slider.
-                    val gap = when {
-                        i == 0 -> 0.dp
-                        firstOfDay -> 10.dp
-                        else -> 2.dp
-                    }
-                    EventRowB(row, if (firstOfDay) row.date else null, row.date == today, gap, k, locale)
-                }
+                itemsIndexed(view.rows, itemId = { _, row -> row.id }) { i, row -> EventB(view.rows, i, row, today, k, locale) }
             }
         }
     }
+}
+
+@Composable
+private fun EventB(rows: List<EventRow>, i: Int, row: EventRow, today: LocalDate, k: Float, locale: Locale) {
+    val firstOfDay = i == 0 || rows[i - 1].date != row.date
+    // 2dp between events of a day, 10dp before a new day; not scaled by the slider.
+    val gap = when {
+        i == 0 -> 0.dp
+        firstOfDay -> 10.dp
+        else -> 2.dp
+    }
+    EventRowB(row, if (firstOfDay) row.date else null, row.date == today, gap, k, locale)
 }
 
 @Composable
@@ -306,7 +312,8 @@ internal fun WarningChip(w: WeatherWarning, size: TextUnit) {
         Dot(8.dp, color)
         Spacer(GlanceModifier.width(6.dp))
         val texts = LocalTexts.current
-        Label(texts.warning(texts.warningType(w.type), w.tomorrow), size, color)
+        // Yellow text is unreadable on a light card; there the dot alone carries the level.
+        Label(texts.warning(texts.warningType(w.type), w.tomorrow), size, if (Palette.theme.light) Palette.inkP else color)
     }
 }
 

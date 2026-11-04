@@ -79,7 +79,7 @@ class ClaudeWidget : ZoneWidget() {
     @Composable
     override fun Content(state: PanelState) {
         val width = LocalSize.current.width - 2.dp
-        ClaudeZone(state.claude, LocalContext.current, GlanceModifier.fillMaxSize(), barWidth = width - 34.dp, atLeftEdge = true)
+        ClaudeZone(state.claude, LocalContext.current, GlanceModifier.fillMaxSize(), barWidth = width - 34.dp, atLeftEdge = true, centered = true)
     }
 }
 

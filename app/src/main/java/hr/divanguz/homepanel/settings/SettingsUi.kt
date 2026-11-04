@@ -195,6 +195,7 @@ private fun Screens(goHome: () -> Unit) {
     var claudeSummary by remember { mutableStateOf(Summary("…")) }
     var carSummary by remember { mutableStateOf(Summary("…")) }
     var batteryOk by remember { mutableStateOf(true) }
+    var freshness by remember { mutableStateOf(Summary("…")) }
 
     fun reload() {
         batteryOk = context.getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(context.packageName)
@@ -220,6 +221,15 @@ private fun Screens(goHome: () -> Unit) {
                 warn = ha.car?.locked == false,
             )
             val c = withContext(Dispatchers.IO) { ClaudeUsage.cached(app) }
+            // When each source last answered; amber once anything is over an hour old (weather: two).
+            val now = System.currentTimeMillis()
+            val parts = listOfNotNull(
+                ha.weatherAt.takeIf { ha.weather != null }?.let { Triple(tr("Weather"), it, 2 * 3_600_000L) },
+                ha.carAt.takeIf { ha.car != null }?.let { Triple(tr("Car"), it, 3_600_000L) },
+                c.fetchedAt.takeIf { c.hasData }?.let { Triple(tr("Claude"), it, 3_600_000L) },
+            )
+            freshness = if (parts.isEmpty()) Summary(tr("Nothing fetched yet"))
+            else Summary(parts.joinToString(" · ") { (name, at, _) -> "$name ${ago(at)}" }, warn = parts.any { (_, at, limit) -> now - at > limit })
             claudeSummary = when {
                 store.claudeSession.isNullOrBlank() -> Summary(tr("Not signed in"), warn = true)
                 c.needsLogin -> Summary(tr("Session expired · sign in again"), warn = true)
@@ -273,6 +283,7 @@ private fun Screens(goHome: () -> Unit) {
                 busy = busy,
                 ha = haSummary, weather = weatherSummary, calendar = calendarSummary, claude = claudeSummary, car = carSummary,
                 batteryOk = batteryOk,
+                freshness = freshness,
                 onRefresh = { refresh() },
                 onRefreshAndLeave = { refresh(goHome) },
                 open = { page = it },
@@ -351,6 +362,7 @@ private fun MainPage(
     claude: Summary,
     car: Summary,
     batteryOk: Boolean,
+    freshness: Summary,
     onRefresh: () -> Unit,
     onRefreshAndLeave: () -> Unit,
     open: (Page) -> Unit,
@@ -386,8 +398,11 @@ private fun MainPage(
             tr("Background refresh"),
             if (batteryOk) Summary(tr("Unrestricted")) else Summary(tr("Optimized by the system · tap to allow"), warn = true),
             onClick = if (batteryOk) null else onBattery,
-            last = true,
             icon = R.drawable.ic_battery, hue = Hues.battery,
+        )
+        Item(
+            tr("Last updated"), freshness, onClick = onRefresh, last = true,
+            icon = R.drawable.ic_refresh, hue = Hues.layout,
         )
     }
     Spacer(Modifier.height(16.dp))
@@ -671,6 +686,36 @@ private fun CalendarPage(store: Settings, onChanged: () -> Unit) {
         }
     }
     Spacer(Modifier.height(16.dp))
+    val calendars = remember { CalendarSource.calendars(context) }
+    var hidden by remember { mutableStateOf(store.hiddenCalendars) }
+    if (calendars.isNotEmpty()) {
+        SectionLabel(tr("Shown on the widget"))
+        Grouped {
+            calendars.forEachIndexed { i, cal ->
+                Row(
+                    modifier = Modifier.fillMaxWidth().clickable {
+                        hidden = if (cal.id in hidden) hidden - cal.id else hidden + cal.id
+                        store.hiddenCalendars = hidden
+                        onChanged()
+                    }.heightIn(min = 64.dp).padding(start = 18.dp, end = 18.dp, top = 10.dp, bottom = 10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Box(Modifier.size(12.dp).clip(RoundedCornerShape(6.dp)).background(cal.color?.let { Color(it or 0xFF000000.toInt()) } ?: Ink3))
+                    Spacer(Modifier.width(16.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        T(cal.name.ifBlank { tr("Calendar") }, 17, if (cal.id in hidden) Ink3 else Ink, FontWeight.Medium, maxLines = 1)
+                        if (cal.account.isNotBlank() && cal.account != cal.name) T(cal.account, 13, Ink3, maxLines = 1)
+                    }
+                    Switch(
+                        checked = cal.id !in hidden, onCheckedChange = null,
+                        colors = SwitchDefaults.colors(checkedTrackColor = Accent, checkedThumbColor = Color(0xFF1A1206), uncheckedTrackColor = Hair, uncheckedThumbColor = Ink3, uncheckedBorderColor = Hair),
+                    )
+                }
+                if (i < calendars.lastIndex) Divider()
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+    }
     Grouped {
         Item(tr("Open calendar"), Summary(tr("Your default calendar app")), onClick = {
             context.startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
@@ -1305,7 +1350,7 @@ private fun WidgetPreview(look: Look) {
     val context = LocalContext.current
     val app = context.applicationContext
     androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-        val size = androidx.compose.ui.unit.DpSize(maxWidth, 440.dp)
+        val size = androidx.compose.ui.unit.DpSize(maxWidth, 560.dp)
         var views by remember { mutableStateOf<android.widget.RemoteViews?>(null) }
         LaunchedEffect(look, size) {
             views = withContext(Dispatchers.Default) {
@@ -1337,6 +1382,8 @@ private fun WidgetPreview(look: Look) {
 /** Name and one line for each theme in [Themes.ids]. */
 private fun themeText(id: String): Pair<String, String> = when (id) {
     Themes.MIDNIGHT -> tr("Midnight") to tr("Blue-grey, the original")
+    Themes.AUTO -> tr("Day and night") to tr("Light by day, Midnight at night, with the system's dark mode")
+    Themes.LIGHT -> tr("Light") to tr("Light grey card with dark text")
     Themes.MATERIAL_YOU -> "Material You" to tr("Dark tones from your wallpaper")
     "graphite" -> tr("Graphite") to tr("Neutral grey, no tint")
     "amoled" -> tr("AMOLED black") to tr("Pure black, blends into a black wallpaper")
