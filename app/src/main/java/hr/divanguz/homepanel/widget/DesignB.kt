@@ -264,10 +264,11 @@ private fun EventRowB(row: EventRow, day: LocalDate?, isToday: Boolean, gap: Dp,
             Dot(dz(10, k), ColorProvider(Color((row.event.color ?: 0xFF8A909C.toInt()) or 0xFF000000.toInt())))
             Spacer(GlanceModifier.width(10.dp))
             Label(row.title, sz(16, k), Palette.inkP, modifier = GlanceModifier.defaultWeight())
-            // All-day events show no time.
-            if (!row.event.allDay) {
+            // Events over several days show their first and last day; other all-day events show no time.
+            val right = row.span ?: row.time.takeIf { !row.event.allDay }
+            if (right != null) {
                 Spacer(GlanceModifier.width(8.dp))
-                Label(row.time, sz(15, k), Palette.ink3P)
+                Label(right, sz(15, k), Palette.ink3P)
             }
         }
     }

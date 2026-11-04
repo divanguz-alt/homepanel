@@ -14,6 +14,8 @@ data class EventRow(
     val date: java.time.LocalDate,
     val dayLabel: String,
     val time: String,
+    /** First and last day of an event that runs over several days ("15 Oct – 14 Nov"), else null. */
+    val span: String? = null,
     val title: String,
     val event: CalEvent,
 )
@@ -48,11 +50,33 @@ fun CalendarSnapshot.toView(
             date = shownDay,
             dayLabel = shownDay.format(dayFmt).replace(".", "").uppercase(locale),
             time = time,
+            span = spanLabel(e, zone, locale),
             title = e.title,
             event = e,
         )
     }
     return CalendarView(todayEmpty, rows)
+}
+
+/**
+ * "15 Oct – 14 Nov" / "15.10. – 14.11." for all-day events over several days and timed ones of a
+ * day or longer; "15 – 20 Oct" / "15. – 20.10." within a month. Short overnight events get none.
+ */
+internal fun spanLabel(e: CalEvent, zone: ZoneId, locale: Locale): String? {
+    val first = e.startDate(zone)
+    val last = e.lastDate(zone)
+    if (last <= first) return null
+    if (!e.allDay && e.end - e.begin < 24 * 60 * 60 * 1000L) return null
+    val numeric = locale.language == "hr"
+    val sameMonth = first.month == last.month && first.year == last.year
+    fun fmt(p: String, d: java.time.LocalDate) = d.format(DateTimeFormatter.ofPattern(p, locale)).replace(".", if (numeric) "." else "")
+    return if (numeric) {
+        if (sameMonth) "${first.dayOfMonth}. – ${last.dayOfMonth}.${last.monthValue}."
+        else "${first.dayOfMonth}.${first.monthValue}. – ${last.dayOfMonth}.${last.monthValue}."
+    } else {
+        if (sameMonth) "${first.dayOfMonth} – ${fmt("d MMM", last)}"
+        else "${fmt("d MMM", first)} – ${fmt("d MMM", last)}"
+    }
 }
 
 /** Opens the default calendar app's "new event" screen. */

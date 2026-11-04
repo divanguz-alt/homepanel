@@ -358,6 +358,11 @@ private fun EventItem(row: EventRow, isLast: Boolean) {
                 Spacer(GlanceModifier.width(dz(10, k)))
             }
             Label(row.title, sz(17, k), Palette.inkP, modifier = GlanceModifier.defaultWeight())
+            // The time column is too narrow for dates, so a multi-day span sits at the right end.
+            row.span?.let {
+                Spacer(GlanceModifier.width(8.dp))
+                Label(it, sz(15, k), Palette.ink3P)
+            }
         }
         if (!isLast) HDivider()
     }

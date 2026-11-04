@@ -40,4 +40,22 @@ class CalendarRowsTest {
         val snap = CalendarSnapshot(true, listOf(CalEvent(1, at(tomorrow, 9), at(tomorrow, 10), false, "Later")), now)
         assertTrue(snap.toView(now, zone, Locale.UK).todayEmpty)
     }
+
+    @Test fun multiDaySpans() {
+        val utc = { d: LocalDate -> d.atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli() }
+        val leave = CalEvent(1, utc(LocalDate.of(2026, 10, 15)), utc(LocalDate.of(2026, 11, 15)), true, "Leave")
+        assertEquals("15 Oct – 14 Nov", spanLabel(leave, zone, Locale.UK))
+        assertEquals("15.10. – 14.11.", spanLabel(leave, zone, Locale.forLanguageTag("hr")))
+        val trip = CalEvent(2, utc(LocalDate.of(2026, 10, 20)), utc(LocalDate.of(2026, 10, 23)), true, "Trip")
+        assertEquals("20 – 22 Oct", spanLabel(trip, zone, Locale.UK))
+        assertEquals("20. – 22.10.", spanLabel(trip, zone, Locale.forLanguageTag("hr")))
+        val oneDay = CalEvent(3, utc(today), utc(today.plusDays(1)), true, "Birthday")
+        assertEquals(null, spanLabel(oneDay, zone, Locale.UK))
+        val overnight = CalEvent(4, at(today, 22), at(today.plusDays(1), 2), false, "Party")
+        assertEquals(null, spanLabel(overnight, zone, Locale.UK))
+        // Listed under today, the span still names the real first day.
+        val row = CalendarSnapshot(true, listOf(leave), now).toView(now, zone, Locale.UK).rows.single()
+        assertEquals(today, row.date)
+        assertEquals("15 Oct – 14 Nov", row.span)
+    }
 }
