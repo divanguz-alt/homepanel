@@ -44,6 +44,7 @@ internal object SettingsLanguage {
         "Light grey card with dark text" to "Svijetlosiva kartica s tamnim tekstom",
         "Last updated" to "Zadnje osvježeno",
         "Nothing fetched yet" to "Još ništa nije dohvaćeno",
+        "Corners: %s dp, the phone's own widget radius (both widgets use it)" to "Kutovi: %s dp, polumjer widgeta samog mobitela (koriste ga oba widgeta)",
         // Layout
         "Layout" to "Raspored",
         "Everything hidden" to "Sve je skriveno",

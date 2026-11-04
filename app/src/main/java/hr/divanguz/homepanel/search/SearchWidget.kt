@@ -35,7 +35,6 @@ import hr.divanguz.homepanel.widget.Palette
 import hr.divanguz.homepanel.widget.Texts
 
 private val BarHeight = 50.dp
-private val Radius = BarHeight / 2
 
 /** Secondary widget: a search bar in the panel's colours that opens Firefox's search. */
 class SearchWidget : GlanceAppWidget() {
@@ -65,6 +64,8 @@ class SearchReceiver : GlanceAppWidgetReceiver() {
 private fun SearchBar(context: Context) {
     val texts = Texts.of(Settings.get(context).language)
     val tint = ColorFilter.tint(Palette.ink2P)
+    // The same corners as the panel and the phone's other widgets; at most a pill on this short bar.
+    val radius = minOf(hr.divanguz.homepanel.widget.widgetRadius(context), BarHeight / 2)
     // Same size as Firefox's own bar: 50dp high, centred in the cell, full width.
     Box(modifier = GlanceModifier.fillMaxSize(), contentAlignment = Alignment.Center) {
         // Hairline border faked with an outer box, as on the panel.
@@ -73,14 +74,14 @@ private fun SearchBar(context: Context) {
                 .fillMaxWidth()
                 .height(BarHeight)
                 .background(Palette.borderP)
-                .cornerRadius(Radius)
+                .cornerRadius(radius)
                 .padding(1.dp),
         ) {
             Row(
                 modifier = GlanceModifier
                     .fillMaxSize()
                     .background(Palette.cardP)
-                    .cornerRadius(Radius - 1.dp)
+                    .cornerRadius(radius - 1.dp)
                     .clickable(actionStartActivity(Firefox.searchIntent(context)))
                     .padding(start = 18.dp, end = 1.dp),
                 verticalAlignment = Alignment.CenterVertically,

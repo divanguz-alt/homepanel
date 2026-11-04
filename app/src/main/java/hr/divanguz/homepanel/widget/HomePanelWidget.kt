@@ -59,7 +59,6 @@ import hr.divanguz.homepanel.claude.ClaudeLoginActivity
 import hr.divanguz.homepanel.ha.CarImage
 import hr.divanguz.homepanel.ha.CarMap
 
-private val CardRadius = 28.dp
 
 /**
  * Previews (picker, settings) can't host a scrolling list: there the calendar is a plain column of
@@ -130,18 +129,19 @@ class HomePanelWidget : GlanceAppWidget() {
 /** The panel's card: theme colour, 1dp hairline (an outer box one dp larger), rounded corners. */
 @Composable
 internal fun Card(content: @Composable () -> Unit) {
+    val radius = widgetRadius(LocalContext.current)
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(Palette.borderP)
-            .cornerRadius(CardRadius)
+            .cornerRadius(radius)
             .padding(1.dp),
     ) {
         Box(
             modifier = GlanceModifier
                 .fillMaxSize()
                 .background(Palette.cardP)
-                .cornerRadius(CardRadius - 1.dp),
+                .cornerRadius(radius - 1.dp),
         ) { content() }
     }
 }

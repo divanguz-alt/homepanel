@@ -83,6 +83,15 @@ object Themes {
     }
 }
 
+/**
+ * The launcher's widget corner radius: Android 12+ lets each maker set `system_app_widget_background_radius`
+ * (One UI sets Samsung's own), so both widgets use it and match the phone's other widgets. 28dp if unreadable.
+ */
+fun widgetRadius(context: Context): androidx.compose.ui.unit.Dp = runCatching {
+    val r = context.resources
+    (r.getDimension(android.R.dimen.system_app_widget_background_radius) / r.displayMetrics.density)
+}.getOrNull()?.takeIf { it > 0f }?.let { androidx.compose.ui.unit.Dp(it) } ?: androidx.compose.ui.unit.Dp(28f)
+
 object Palette {
     @Volatile var theme: WidgetTheme = Themes.midnight
     /** Auto theme: colours carry a day and a night value and the launcher picks one when it draws. */

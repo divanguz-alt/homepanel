@@ -1131,11 +1131,19 @@ private fun AppearancePage(store: Settings) {
         SizeRow(tr("Car and Claude"), look.bottom, 0.8f..1.5f, ::pct) { save(look.copy(bottom = it)) }
     }
     Spacer(Modifier.height(12.dp))
+    T(
+        trf("Corners: %s dp, the phone's own widget radius (both widgets use it)", widgetRadiusText(LocalContext.current)), 13, Ink3,
+        modifier = Modifier.padding(horizontal = 18.dp),
+    )
+    Spacer(Modifier.height(4.dp))
     Text(
         tr("Reset sizes"), color = Accent, fontSize = 15.sp,
         modifier = Modifier.clip(RoundedCornerShape(12.dp)).clickable { save(look.resetSizes()) }.padding(10.dp),
     )
 }
+
+private fun widgetRadiusText(context: Context) =
+    "%.0f".format(hr.divanguz.homepanel.widget.widgetRadius(context).value)
 
 private fun zoneName(id: String) = when (id) {
     Zones.WEATHER -> tr("Weather")

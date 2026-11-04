@@ -28,7 +28,7 @@ entered or picked in settings after installing; samples use neutral placeholders
 ## Layout (top to bottom, one card)
 
 Card: background `#15181F`, 1dp hairline `#262A33` (fake with an outer box if needed),
-corner radius 28dp, full widget width. Text colors: primary `#ECEEF2`, secondary `#A3A9B5`,
+corner radius = the system widget radius (`system_app_widget_background_radius`, set by One UI; 28dp fallback), full widget width; the search bar uses the same, capped at a pill. Text colors: primary `#ECEEF2`, secondary `#A3A9B5`,
 tertiary `#8A909C`. Single accent `#F2A65A`, currently unused in the widget. Calendar day labels are all secondary (the
 user rejected an accented first row). Claude bars use a green → yellow → red gradient across the track.
 Dividers: 1dp `#262A33`.
