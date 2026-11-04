@@ -133,6 +133,25 @@ internal fun Card(content: @Composable () -> Unit) {
     }
 }
 
+/**
+ * The panel drawn off-screen for the settings preview, with [look] (not yet saved, or just saved) and
+ * the cached data, or samples before there is any.
+ */
+@OptIn(androidx.glance.appwidget.ExperimentalGlanceRemoteViewsApi::class)
+suspend fun previewViews(context: Context, look: Look, size: androidx.compose.ui.unit.DpSize): android.widget.RemoteViews {
+    val settings = Settings.get(context)
+    val texts = Texts.of(settings.language)
+    val ha = Preview.ha(context)
+    val claude = Preview.claude(context)
+    val calendar = Preview.calendar(context)
+    return androidx.glance.appwidget.GlanceRemoteViews().compose(context, size) {
+        Palette.use(context, look.theme)
+        CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts) {
+            Panel(panelState(ha, haConfigured = true, claude = claude, claudeBusy = false, carName = settings.carName, texts = texts), calendar)
+        }
+    }.remoteViews
+}
+
 @Composable
 private fun Panel(state: PanelState, calendar: CalendarSnapshot?) {
     val context = LocalContext.current

@@ -60,6 +60,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.alpha
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
@@ -243,11 +245,14 @@ private fun Screens(goHome: () -> Unit) {
     }
     BackHandler(enabled = page != Page.Main) { page = Page.Main; reload() }
 
+    // Each page starts at the top.
+    val scroll = remember(page) { androidx.compose.foundation.ScrollState(0) }
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
             .safeDrawingPadding()
-            .verticalScroll(rememberScrollState())
+            .verticalScroll(scroll)
             .padding(horizontal = 14.dp),
     ) {
         if (page == Page.Main) {
@@ -293,6 +298,47 @@ private fun Screens(goHome: () -> Unit) {
             Page.Updates -> UpdatesPage(store)
         }
         Spacer(Modifier.height(40.dp))
+    }
+    // One UI's collapsing title: once the big title has scrolled away, a small one stays on a bar.
+    CollapsedBar(
+        title = if (page == Page.Main) "HomePanel" else tr(page.title),
+        visible = scroll.value > with(androidx.compose.ui.platform.LocalDensity.current) { (if (page == Page.Main) 150.dp else 110.dp).toPx() },
+        back = if (page == Page.Main) null else ({ page = Page.Main; reload() }),
+    )
+    }
+}
+
+@Composable
+private fun CollapsedBar(title: String, visible: Boolean, back: (() -> Unit)?) {
+    val alpha by androidx.compose.animation.core.animateFloatAsState(if (visible) 1f else 0f, label = "bar")
+    if (alpha == 0f) return
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .alpha(alpha)
+            .background(Ground)
+            .statusBarsPadding()
+            .height(60.dp)
+            .padding(horizontal = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        if (back != null) BackArrow(back) else Spacer(Modifier.width(10.dp))
+        T(title, 20, Ink, FontWeight.SemiBold, modifier = Modifier.padding(start = 4.dp), maxLines = 1)
+    }
+}
+
+@Composable
+private fun BackArrow(back: () -> Unit) {
+    Box(
+        modifier = Modifier.size(48.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = back),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.size(20.dp)) {
+            val w = size.width
+            val stroke = 2.dp.toPx()
+            drawLine(Ink, Offset(w * 0.62f, w * 0.18f), Offset(w * 0.3f, w * 0.5f), stroke, StrokeCap.Round)
+            drawLine(Ink, Offset(w * 0.3f, w * 0.5f), Offset(w * 0.62f, w * 0.82f), stroke, StrokeCap.Round)
+        }
     }
 }
 
@@ -983,6 +1029,7 @@ private fun AppearancePage(store: Settings) {
     }
     fun pct(v: Float) = "${(v * 100).roundToInt()}%"
 
+    WidgetPreview(look)
     var language by remember { mutableStateOf(store.language) }
     Grouped(padded = true) {
         Choice(tr("Widget language"), listOf("en" to "English", "hr" to "Hrvatski"), language) {
@@ -1076,6 +1123,7 @@ private fun LayoutPage(store: Settings) {
     }
     fun show(id: String, on: Boolean) = save(look.copy(hidden = if (on) look.hidden - id else look.hidden + id))
 
+    WidgetPreview(look)
     SectionLabel(tr("From top to bottom"))
     Grouped {
         look.order.forEachIndexed { i, id ->
@@ -1244,6 +1292,44 @@ private fun BackupPage(store: Settings, onRestored: () -> Unit) {
     )
 }
 
+/**
+ * The real widget, drawn by Glance off-screen with [look] and shown here; redrawn whenever [look]
+ * changes. Taps on it do nothing (it is only a picture of the panel).
+ */
+@Composable
+private fun WidgetPreview(look: Look) {
+    val context = LocalContext.current
+    val app = context.applicationContext
+    androidx.compose.foundation.layout.BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val size = androidx.compose.ui.unit.DpSize(maxWidth, 440.dp)
+        var views by remember { mutableStateOf<android.widget.RemoteViews?>(null) }
+        LaunchedEffect(look, size) {
+            views = withContext(Dispatchers.Default) {
+                runCatching { hr.divanguz.homepanel.widget.previewViews(app, look, size) }
+                    .onFailure { android.util.Log.w("HomePanel", "Preview failed", it) }
+                    .getOrNull()
+            } ?: views
+        }
+        Box(modifier = Modifier.fillMaxWidth().height(size.height)) {
+            androidx.compose.ui.viewinterop.AndroidView(
+                factory = { android.widget.FrameLayout(it) },
+                update = { frame ->
+                    frame.removeAllViews()
+                    views?.let { rv -> runCatching { rv.apply(frame.context, frame) }.getOrNull()?.let(frame::addView) }
+                },
+                modifier = Modifier.fillMaxSize(),
+            )
+            Box(
+                modifier = Modifier.fillMaxSize().clickable(
+                    interactionSource = remember { androidx.compose.foundation.interaction.MutableInteractionSource() },
+                    indication = null,
+                ) {},
+            )
+        }
+    }
+    Spacer(Modifier.height(20.dp))
+}
+
 /** Name and one line for each theme in [Themes.ids]. */
 private fun themeText(id: String): Pair<String, String> = when (id) {
     Themes.MIDNIGHT -> tr("Midnight") to tr("Blue-grey, the original")
@@ -1300,17 +1386,7 @@ private fun ThemeChooser(selected: String, onPick: (String) -> Unit) {
 @Composable
 private fun PageHeader(title: String, back: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 8.dp, bottom = 4.dp)) {
-        Box(
-            modifier = Modifier.size(48.dp).clip(RoundedCornerShape(24.dp)).clickable(onClick = back),
-            contentAlignment = Alignment.Center,
-        ) {
-            Canvas(modifier = Modifier.size(20.dp)) {
-                val w = size.width
-                val stroke = 2.dp.toPx()
-                drawLine(Ink, Offset(w * 0.62f, w * 0.18f), Offset(w * 0.3f, w * 0.5f), stroke, StrokeCap.Round)
-                drawLine(Ink, Offset(w * 0.3f, w * 0.5f), Offset(w * 0.62f, w * 0.82f), stroke, StrokeCap.Round)
-            }
-        }
+        BackArrow(back)
     }
     // One UI puts the page name large under the back arrow rather than beside it.
     T(title, 32, weight = FontWeight.SemiBold, modifier = Modifier.padding(start = 10.dp, top = 8.dp, bottom = 24.dp))

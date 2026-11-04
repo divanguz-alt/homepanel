@@ -87,6 +87,10 @@ hairline nine-patch is tinted. The car map bitmap is not themed.
   session key are never written or read.
 - Settings screen type: system font, Material's 0.5sp tracking removed (`Type`, `T()` in SettingsUi.kt),
   SemiBold titles, Medium row titles, coloured line icons per section (`Hues`).
+  The big page title collapses into a small bar on scroll (`CollapsedBar`). Appearance and Layout show
+  the real widget at the top: `previewViews()` renders `Panel` with `GlanceRemoteViews` (experimental
+  Glance API) into RemoteViews hosted in an `AndroidView`; taps on it are swallowed. The calendar's
+  LazyColumn rows don't render in that preview.
 
 ## Language, rain, location
 
