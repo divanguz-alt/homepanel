@@ -2,6 +2,7 @@ package hr.divanguz.homepanel.widget
 
 import android.content.Context
 import android.content.Intent
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.graphics.Color
@@ -553,23 +554,16 @@ private fun Usage(line: UsageLine?, label: String, barWidth: Dp, claude: ClaudeS
     Spacer(GlanceModifier.height(dz(4, k)))
     val track = barWidth.coerceAtLeast(0.dp)
     val fill = track * ((percent ?: 0).coerceIn(0, 100) / 100f)
-    // Green → yellow → red across the whole track; the unused part is covered from the right, so the
-    // tip's color shows how close the limit is.
-    Box(
-        modifier = GlanceModifier
-            .width(track).height(dz(6, k))
-            .background(ImageProvider(R.drawable.usage_gradient), ContentScale.FillBounds)
-            .cornerRadius(3.dp),
-    ) {
-        Row(modifier = GlanceModifier.fillMaxSize()) {
-            Spacer(GlanceModifier.width(fill))
-            // Weight, not an exact width: the two dp widths round to pixels separately and could
-            // leave a sliver of red showing at the end.
-            if (track - fill > 0.dp) {
-                Box(modifier = GlanceModifier.defaultWeight().height(dz(6, k)).background(Palette.track)) {}
-            }
-        }
-    }
+    // Green → yellow → red across the whole track, drawn only up to the fill, so the tip's colour shows
+    // how close the limit is. A bitmap rather than a gradient covered from the right: a see-through
+    // theme (Glass) would show the gradient through the cover.
+    val height = dz(6, k)
+    Image(
+        provider = ImageProvider(UsageBar.draw(LocalContext.current, track, height, percent ?: 0, Palette.track.toArgb())),
+        contentDescription = null,
+        contentScale = ContentScale.FillBounds,
+        modifier = GlanceModifier.width(track).height(height),
+    )
     Spacer(GlanceModifier.height(dz(4, k)))
     val note = when {
         claude.busy -> LocalTexts.current.updating
