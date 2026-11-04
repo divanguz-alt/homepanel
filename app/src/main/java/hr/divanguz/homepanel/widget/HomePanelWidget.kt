@@ -17,6 +17,7 @@ import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
 import androidx.glance.LocalSize
+import androidx.glance.appwidget.CircularProgressIndicator
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.cornerRadius
@@ -521,11 +522,20 @@ private fun ClaudeZone(claude: ClaudeState, context: Context, modifier: GlanceMo
     val k = LocalLook.current.bottom
     val signIn = Intent(context, ClaudeLoginActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     Column(modifier = modifier.padding(start = 14.dp, top = 10.dp, end = 20.dp, bottom = 10.dp)) {
-        // The title opens the Claude app; the bars below refresh usage.
-        Label(
-            LocalTexts.current.claudeTitle, sz(15, k), Palette.ink3P,
-            modifier = GlanceModifier.fillMaxWidth().opens(launchIntent(context, Packages.CLAUDE)),
-        )
+        // The title opens the Claude app; the bars below refresh usage. While a fetch runs, a small
+        // spinner sits at the right edge of the title row.
+        Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Label(
+                LocalTexts.current.claudeTitle, sz(15, k), Palette.ink3P,
+                modifier = GlanceModifier.defaultWeight().opens(launchIntent(context, Packages.CLAUDE)),
+            )
+            if (claude.busy) {
+                CircularProgressIndicator(
+                    modifier = GlanceModifier.width(dz(14, k)).height(dz(14, k)),
+                    color = Palette.ink2P,
+                )
+            }
+        }
         Spacer(GlanceModifier.height(dz(6, k)))
         when {
             claude.needsLogin && claude.fiveHour == null -> Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight().opens(signIn)) {
@@ -571,7 +581,6 @@ private fun Usage(line: UsageLine?, label: String, barWidth: Dp, claude: ClaudeS
     )
     Spacer(GlanceModifier.height(dz(4, k)))
     val note = when {
-        claude.busy -> LocalTexts.current.updating
         claude.needsLogin -> LocalTexts.current.signedOut
         showFailure && claude.failed -> LocalTexts.current.notUpdated
         else -> line?.resets.orEmpty()

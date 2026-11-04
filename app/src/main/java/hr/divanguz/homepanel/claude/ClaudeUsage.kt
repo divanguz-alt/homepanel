@@ -68,17 +68,18 @@ object ClaudeUsage {
         if (settings.claudeSession.isNullOrBlank()) return old.copy(needsLogin = true, error = null).also { save(context, it) }
 
         val org = settings.claudeOrgId?.takeIf { it.isNotBlank() } ?: discoverOrg(settings)?.also { settings.claudeOrgId = it }
-        if (org == null) return old.copy(error = "Could not find your Claude organization").also { save(context, it) }
+        // There is a session from here on, so only a "signed out" answer may ask for sign-in again.
+        if (org == null) return old.copy(needsLogin = false, error = "Could not find your Claude organization").also { save(context, it) }
 
         var outcome = get(settings, "/api/organizations/$org/usage")
         if (outcome == Outcome.Challenged && CloudflareSolver.solve(context, settings)) {
             outcome = get(settings, "/api/organizations/$org/usage")
         }
         val next = when (val o = outcome) {
-            is Outcome.Ok -> runCatching { parse(o.body) }.getOrElse { old.copy(error = "Unexpected response from claude.ai") }
+            is Outcome.Ok -> runCatching { parse(o.body) }.getOrElse { old.copy(needsLogin = false, error = "Unexpected response from claude.ai") }
             Outcome.SignedOut -> old.copy(needsLogin = true, error = "Signed out")
-            Outcome.Challenged -> old.copy(error = "Cloudflare check did not pass")
-            is Outcome.Failed -> old.copy(error = o.reason)
+            Outcome.Challenged -> old.copy(needsLogin = false, error = "Cloudflare check did not pass")
+            is Outcome.Failed -> old.copy(needsLogin = false, error = o.reason)
         }
         if (next.error != null) Log.w("HomePanel", "Claude usage: ${next.error}")
         save(context, next)
