@@ -495,10 +495,12 @@ internal fun CarZone(
         CarZoneRender(car, haConfigured, context, modifier, width)
         return
     }
-    val tap = carTap(context, haConfigured)
+    val (mapTap, textTap) = carTaps(context, haConfigured)
+    val split = mapTap !== textTap
+    val since = car?.since?.takeIf { Settings.get(context).carSince }
     val main = if (car == null || car.stale) Palette.ink3P else Palette.inkP
     // The map is pre-blurred and darkened on the left, sharp around the pin on the right.
-    Box(modifier = modifier.fillMaxHeight().opens(tap)) {
+    Box(modifier = modifier.fillMaxHeight().let { if (split) it else it.opens(mapTap) }) {
         Image(
             provider = ImageProvider(map),
             contentDescription = "Map of where the car is parked",
@@ -511,9 +513,20 @@ internal fun CarZone(
             Spacer(GlanceModifier.height(2.dp))
             Label(car?.address ?: "–", sz(22, k), main, weight = FontWeight.Medium)
             Label(car?.city ?: LocalTexts.current.waitingHa, sz(16, k), onMap ?: Palette.ink2P)
+            if (since != null) Label(since, sz(13, k), onMap ?: Palette.ink2P)
             Spacer(GlanceModifier.defaultWeight())
             CarRange(car, main, onMap)
         }
+        if (split) TapHalves(text = textTap, map = mapTap)
+    }
+}
+
+/** Two invisible tap areas over the car zone: the text on the left, the map and pin on the right. */
+@Composable
+private fun TapHalves(text: Intent?, map: Intent?) {
+    Row(modifier = GlanceModifier.fillMaxSize()) {
+        Box(modifier = GlanceModifier.defaultWeight().fillMaxHeight().opens(text)) {}
+        Box(modifier = GlanceModifier.defaultWeight().fillMaxHeight().opens(map)) {}
     }
 }
 
@@ -522,11 +535,20 @@ private val UnlockedTint = ColorProvider(Color(0xFFE5A04F))
 /** Design B's text and icon colour on the grey map. */
 private val OnMapB = ColorProvider(Color(0xFFA2A4AB))
 
-/** The car app chosen in settings; Home Assistant without one; settings until HA is set up. */
-private fun carTap(context: Context, haConfigured: Boolean): Intent? =
-    if (!haConfigured) settingsIntent(context)
-    else Settings.get(context).carApp.takeIf { it.isNotBlank() }?.let { launchIntent(context, it) }
-        ?: launchIntent(context, Packages.HOME_ASSISTANT)
+/** An app picked in settings; Home Assistant when none is picked (or it's gone). */
+private fun carApp(context: Context, pkg: String): Intent? =
+    pkg.takeIf { it.isNotBlank() }?.let { launchIntent(context, it) } ?: launchIntent(context, Packages.HOME_ASSISTANT)
+
+/**
+ * (map half, text half). Not split: the same intent twice, the car app chosen in settings.
+ * Settings for both until HA is set up.
+ */
+private fun carTaps(context: Context, haConfigured: Boolean): Pair<Intent?, Intent?> {
+    if (!haConfigured) return settingsIntent(context).let { it to it }
+    val s = Settings.get(context)
+    val map = carApp(context, s.carApp)
+    return map to if (s.carSplitTap) carApp(context, s.carApp2) else map
+}
 
 @Composable
 private fun CarHeader(car: CarState?, tint: ColorProvider? = null) {
@@ -569,7 +591,9 @@ private fun CarRange(car: CarState?, main: ColorProvider, tint: ColorProvider? =
 /** Fallback before a map exists: text on the left, the car render in the bottom-right corner. */
 @Composable
 private fun CarZoneRender(car: CarState?, haConfigured: Boolean, context: Context, modifier: GlanceModifier, width: Dp) {
-    val tap = carTap(context, haConfigured)
+    val (mapTap, textTap) = carTaps(context, haConfigured)
+    val split = mapTap !== textTap
+    val since = car?.since?.takeIf { Settings.get(context).carSince }
     val main = if (car == null || car.stale) Palette.ink3P else Palette.inkP
     val k = LocalLook.current.bottom
     // The render sits in the bottom-right corner, half the column wide, below the address line;
@@ -578,11 +602,10 @@ private fun CarZoneRender(car: CarState?, haConfigured: Boolean, context: Contex
     val imageWidth = inner * 0.5f
     val imageHeight = imageWidth * 0.6f
     // Push the range row down far enough that the image's top stays under the address.
-    val gap = (imageHeight - 40.dp).coerceAtLeast(4.dp)
+    val gap = (imageHeight - 40.dp - if (since != null) 17.dp else 0.dp).coerceAtLeast(4.dp)
+    Box(modifier = modifier.fillMaxHeight().let { if (split) it else it.opens(mapTap) }) {
     Box(
-        modifier = modifier
-            .padding(start = 20.dp, top = 10.dp, end = 18.dp, bottom = 10.dp)
-            .opens(tap),
+        modifier = GlanceModifier.fillMaxWidth().padding(start = 20.dp, top = 10.dp, end = 18.dp, bottom = 10.dp),
         contentAlignment = Alignment.BottomEnd,
     ) {
         // The cached Home Assistant render; the outline drawing until one has been downloaded.
@@ -601,9 +624,12 @@ private fun CarZoneRender(car: CarState?, haConfigured: Boolean, context: Contex
                 car?.city ?: if (haConfigured) LocalTexts.current.waitingHa else LocalTexts.current.tapToSetUp,
                 sz(16, k), Palette.ink2P,
             )
+            if (since != null) Label(since, sz(13, k), Palette.ink3P)
             Spacer(GlanceModifier.height(gap))
             CarRange(car, main)
         }
+    }
+    if (split) TapHalves(text = textTap, map = mapTap)
     }
 }
 

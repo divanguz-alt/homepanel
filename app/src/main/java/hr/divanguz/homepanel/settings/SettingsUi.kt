@@ -758,8 +758,28 @@ private fun CarPage(store: Settings, onChanged: () -> Unit) {
         }
     }
     Spacer(Modifier.height(16.dp))
-    SectionLabel(tr("Tapping the car opens"))
-    CarAppChooser(store, onChanged)
+    var since by remember { mutableStateOf(store.carSince) }
+    Grouped(padded = true) {
+        ToggleRow(tr("Parked since"), tr("Date and time under the address, from when the parked address last changed"), since) {
+            since = it; store.carSince = it; onChanged()
+        }
+    }
+    Spacer(Modifier.height(16.dp))
+    var split by remember { mutableStateOf(store.carSplitTap) }
+    SectionLabel(tr("Tapping the car"))
+    Grouped(padded = true) {
+        ToggleRow(tr("Two tap areas"), if (split) tr("The map half and the text half open different apps") else tr("The whole car zone opens one app"), split) {
+            split = it; store.carSplitTap = it; onChanged()
+        }
+    }
+    Spacer(Modifier.height(16.dp))
+    SectionLabel(if (split) tr("The map half opens") else tr("Tapping the car opens"))
+    CarAppChooser(store.carApp, { store.carApp = it; onChanged() })
+    if (split) {
+        Spacer(Modifier.height(16.dp))
+        SectionLabel(tr("The text half opens"))
+        CarAppChooser(store.carApp2, { store.carApp2 = it; onChanged() })
+    }
     Spacer(Modifier.height(16.dp))
     SectionLabel(tr("Map"))
     Grouped(padded = true) {
@@ -823,12 +843,12 @@ private fun EntityChooser(
     }
 }
 
-/** Which installed app the car tap opens; Home Assistant when none is chosen. */
+/** Which installed app a car tap opens; Home Assistant when none is chosen. */
 @Composable
-private fun CarAppChooser(store: Settings, onChanged: () -> Unit) {
+private fun CarAppChooser(current: String, onPick: (String) -> Unit) {
     val context = LocalContext.current
     val pm = context.packageManager
-    var chosen by remember { mutableStateOf(store.carApp) }
+    var chosen by remember { mutableStateOf(current) }
     var open by remember { mutableStateOf(false) }
     var query by remember { mutableStateOf("") }
     val apps = remember(open) {
@@ -852,11 +872,11 @@ private fun CarAppChooser(store: Settings, onChanged: () -> Unit) {
                 Field(tr("Search apps"), query) { query = it }
             }
             Item(tr("Home Assistant (default)"), null, onClick = {
-                store.carApp = ""; chosen = ""; open = false; onChanged()
+                chosen = ""; open = false; onPick("")
             })
             apps.filter { query.isBlank() || it.first.contains(query, true) }.take(40).forEachIndexed { i, (name, pkg) ->
                 Item(name, Summary(pkg), onClick = {
-                    store.carApp = pkg; chosen = pkg; open = false; onChanged()
+                    chosen = pkg; open = false; onPick(pkg)
                 }, last = i == 39)
             }
         }

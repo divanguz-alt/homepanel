@@ -84,6 +84,8 @@ data class CarData(
     val range: String?,
     /** True locked, false unlocked, null when no lock entity is known. */
     val locked: Boolean? = null,
+    /** When the parked address last changed (HA's last_changed), epoch ms. */
+    val since: Long? = null,
 )
 
 /** Last good values. Each part keeps its own timestamp so one failing entity doesn't age the other. */
@@ -212,6 +214,8 @@ object HaFetch {
             address = parked?.stateValue(),
             area = parked?.attr("area").str()?.takeIf { it.isNotBlank() },
             range = range,
+            since = parked?.get("last_changed").str()
+                ?.let { runCatching { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() },
         )
     }
 

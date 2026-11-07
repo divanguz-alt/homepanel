@@ -62,6 +62,8 @@ data class CarState(
     val address: String,
     val city: String,
     val range: String,
+    /** "Since today 14:20"; null when HA gave no time. */
+    val since: String? = null,
     val stale: Boolean,
 )
 
@@ -158,6 +160,7 @@ fun panelState(
             address = line1,
             city = line2,
             range = c.range ?: "–",
+            since = c.since?.let { sinceText(it, today, zone, texts) },
             stale = stale(ha.carAt),
         )
     }
@@ -176,6 +179,17 @@ fun panelState(
             failed = claude != null && claude.hasData && !claude.needsLogin && claude.error != null,
         ),
     )
+}
+
+/** "Since today 14:20" / "Since yesterday 9:05" / "Since 3 Nov 18:40". */
+internal fun sinceText(at: Long, today: LocalDate, zone: ZoneId, texts: Texts): String {
+    val t = Instant.ofEpochMilli(at).atZone(zone)
+    val day = when (t.toLocalDate()) {
+        today -> texts.todayWord
+        today.minusDays(1) -> texts.yesterdayWord
+        else -> t.format(DateTimeFormatter.ofPattern(texts.sinceDate, texts.locale)).replace("..", ".")
+    }
+    return texts.since(day, t.format(DateTimeFormatter.ofPattern("HH:mm", texts.locale)))
 }
 
 /** Rain line for the current moment; absolute times so it stays right between refreshes. */

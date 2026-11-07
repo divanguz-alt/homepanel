@@ -95,6 +95,21 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         get() = prefs.getString(CAR_APP, null).orEmpty()
         set(v) = prefs.edit().putString(CAR_APP, v).apply()
 
+    /** Car zone split in two tap areas: the map half opens [carApp], the text half [carApp2]. */
+    var carSplitTap: Boolean
+        get() = prefs.getBoolean(CAR_SPLIT_TAP, false)
+        set(v) = prefs.edit().putBoolean(CAR_SPLIT_TAP, v).apply()
+
+    /** App for the text half when the car zone is split; blank opens Home Assistant. */
+    var carApp2: String
+        get() = prefs.getString(CAR_APP_2, null).orEmpty()
+        set(v) = prefs.edit().putString(CAR_APP_2, v).apply()
+
+    /** "Since today 14:20" under the address: when the parked address last changed in HA. */
+    var carSince: Boolean
+        get() = prefs.getBoolean(CAR_SINCE, false)
+        set(v) = prefs.edit().putBoolean(CAR_SINCE, v).apply()
+
     /** How far ahead the calendar list reaches: 7, 14 or 30 days. */
     var calendarDays: Int
         get() = prefs.getInt(CALENDAR_DAYS, 14)
@@ -294,6 +309,9 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         private const val LOCK = "ha_lock_entity"
         private const val CAR_NAME = "car_name"
         private const val CAR_APP = "car_app"
+        private const val CAR_APP_2 = "car_app_2"
+        private const val CAR_SPLIT_TAP = "car_split_tap"
+        private const val CAR_SINCE = "car_since"
         private const val CALENDAR_DAYS = "calendar_days"
         private const val WEATHER_EVERY_MIN = "weather_every_min"
         private const val WEATHER_MOVE_KM = "weather_move_km"

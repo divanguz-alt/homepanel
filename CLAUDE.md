@@ -45,7 +45,8 @@ Dividers: 1dp `#262A33`.
    Hairline between rows. At least the next 14 days of events.
 3. **Bottom grid, two equal columns** separated by a vertical hairline:
    - **Car (left):** label = car name from settings, "Car" if blank (+ area chip when present), address (19sp semibold),
-     city/second line (13sp secondary), vehicle render image (max ~44dp high, fit width),
+     city/second line (13sp secondary), optional "Since today 14:20" (Car settings → Parked since; HA's
+     `last_changed` of the parked-address sensor), vehicle render image (max ~44dp high, fit width),
      range as a fuel-pump icon + value bottom-left (no "Range" word), render bottom-right.
    - **Claude (right):** "Claude usage", then for 5 hours and Week: label + percent, 4dp bar,
      "resets in …" line (11sp tertiary).
@@ -162,7 +163,7 @@ to Firefox. No Firefox → default browser.
 | Weather | Where the phone is (lat/lon of the phone's HA companion `device_tracker`, auto-detected by Test HA; else HA home) → provider chosen in Settings → Weather source: Open-Meteo (best match / DWD ICON / ECMWF / Météo-France models), MET Norway, DHMZ (Croatia only: nearest vrijeme.hr station + meteo.hr 7-day feed cached by ETag; symbol codes undocumented, condition derived from precipitation), or the HA entity; failures fall back to Open-Meteo then HA. AQI always Open-Meteo `us_aqi`. HRT has no public API (it shows DHMZ data). Settings can compare all providers live. fetched hourly, on a >3 km move, or via the widget's refresh button; city the forecast is for shown under the date. Fallback: HA weather entity (`weather.forecast_home`, forecasts via `weather/get_forecasts`). Samsung Weather data is not accessible to third-party apps. | launch Samsung Weather `com.sec.android.daemonapp` (MAIN activity fallback, it has no launcher icon by default) |
 | Calendar header | n/a | launch Samsung Calendar `com.samsung.android.calendar` |
 | Calendar row | `CalendarContract.Instances` (all visible calendars), next 14 days | `ACTION_VIEW` on the event URI with `EXTRA_EVENT_BEGIN_TIME`/`EXTRA_EVENT_END_TIME` (opens in the default calendar app) |
-| Car address + area | parked-address sensor picked in Car settings: `state` = address, attribute `area` (chip only if non-empty) | the app picked in Car settings ("Tapping the car opens"), else Home Assistant `io.homeassistant.companion.android` |
+| Car address + area | parked-address sensor picked in Car settings: `state` = address, attribute `area` (chip only if non-empty) | the app picked in Car settings ("Tapping the car opens"), else Home Assistant `io.homeassistant.companion.android`. With "Two tap areas" on, the right (map/pin) half opens that app and the left (text) half a second picked app (`carApp2`, Home Assistant by default) |
 | Car range | range sensor + optional backup sensor, picked in Car settings (show `unit_of_measurement`) | same as car |
 | Car image | `image.*` entity picked in Car settings: read `entity_picture` from `/api/states/…`, download it with the bearer token, downscale to ≤ 600px wide, cache on disk, re-download only when the entity's `last_updated` changes | same as car |
 | Car map (cell background) | lat/lon from the car location entity picked in Car settings; OpenFreeMap `fiord` style rendered with MapLibre's snapshotter (no key; CARTO now requires one; attribution drawn in the corner), blurred + darkened under the text, sharp pin with the render on the right; re-rendered only when the parked address changes | same as car |
