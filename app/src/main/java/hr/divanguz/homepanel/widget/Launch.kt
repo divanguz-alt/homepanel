@@ -31,6 +31,18 @@ fun launchIntent(context: Context, pkg: String): Intent? {
     return intent?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 }
 
+/**
+ * Home Assistant in whichever flavour is installed: the Play build, the F-Droid "minimal" one, or any
+ * other launchable io.homeassistant.* package.
+ */
+fun homeAssistantIntent(context: Context): Intent? =
+    launchIntent(context, Packages.HOME_ASSISTANT)
+        ?: launchIntent(context, Packages.HOME_ASSISTANT + ".minimal")
+        ?: context.packageManager
+            .queryIntentActivities(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER), 0)
+            .firstOrNull { it.activityInfo.packageName.startsWith("io.homeassistant") }
+            ?.let { launchIntent(context, it.activityInfo.packageName) }
+
 /** The app's own settings screen, for "tap to set up" states. */
 fun settingsIntent(context: Context): Intent =
     Intent(context, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
