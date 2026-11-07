@@ -536,8 +536,8 @@ private val UnlockedTint = ColorProvider(Color(0xFFE5A04F))
 private val OnMapB = ColorProvider(Color(0xFFA2A4AB))
 
 /** An app picked in settings; Home Assistant when none is picked (or it's gone). */
-private fun carApp(context: Context, pkg: String): Intent? =
-    pkg.takeIf { it.isNotBlank() }?.let { launchIntent(context, it) } ?: homeAssistantIntent(context)
+private fun carApp(context: Context, pkg: String): Intent =
+    OpenAppActivity.intent(context, pkg)
 
 /**
  * (map half, text half). Not split: the same intent twice, the car app chosen in settings.
