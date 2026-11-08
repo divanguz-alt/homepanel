@@ -45,8 +45,8 @@ Dividers: 1dp `#262A33`.
    Hairline between rows. At least the next 14 days of events.
 3. **Bottom grid, two equal columns** separated by a vertical hairline:
    - **Car (left):** label = car name from settings, "Car" if blank (+ area chip when present), address (19sp semibold),
-     city/second line (13sp secondary), optional "Since today 14:20" (Car settings → Parked since; HA's
-     `last_changed` of the parked-address sensor), vehicle render image (max ~44dp high, fit width),
+     city/second line (13sp secondary), optional "Since today 14:20" (Car settings → Parked since; from the entity
+     picked there: a timestamp state, else its `last_changed`; default the parked-address sensor), vehicle render image (max ~44dp high, fit width),
      range as a fuel-pump icon + value bottom-left (no "Range" word), render bottom-right.
    - **Claude (right):** "Claude usage", then for 5 hours and Week: label + percent, 4dp bar,
      "resets in …" line (11sp tertiary).

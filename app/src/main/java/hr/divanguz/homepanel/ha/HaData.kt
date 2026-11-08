@@ -214,10 +214,26 @@ object HaFetch {
             address = parked?.stateValue(),
             area = parked?.attr("area").str()?.takeIf { it.isNotBlank() },
             range = range,
-            since = parked?.get("last_changed").str()
-                ?.let { runCatching { java.time.OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() },
+            since = s.sinceEntity.takeIf { it.isNotBlank() }
+                ?.let { id -> runCatching { client.state(id) }.getOrNull()?.let(::sinceOf) }
+                ?: parked?.let(::sinceOf),
         )
     }
+
+    /**
+     * When an entity says the car parked: its state when that is a date and time (timestamp sensor,
+     * input_datetime), otherwise when its state last changed.
+     */
+    internal fun sinceOf(st: JsonObject): Long? =
+        st.stateValue()?.let(::parseTime) ?: st["last_changed"].str()?.let(::parseTime)
+
+    /** ISO with offset ("…+00:00", "…Z"), or local "2026-11-07 10:20:00" / "2026-11-07T10:20". */
+    internal fun parseTime(v: String): Long? =
+        runCatching { java.time.OffsetDateTime.parse(v.trim().replace(' ', 'T')).toInstant().toEpochMilli() }.getOrNull()
+            ?: runCatching {
+                java.time.LocalDateTime.parse(v.trim().replace(' ', 'T'))
+                    .atZone(java.time.ZoneId.systemDefault()).toInstant().toEpochMilli()
+            }.getOrNull()
 
     /**
      * true = locked. lock.* and text sensors say "locked"/"unlocked"; a binary_sensor with

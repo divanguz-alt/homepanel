@@ -760,9 +760,26 @@ private fun CarPage(store: Settings, onChanged: () -> Unit) {
     Spacer(Modifier.height(16.dp))
     var since by remember { mutableStateOf(store.carSince) }
     Grouped(padded = true) {
-        ToggleRow(tr("Parked since"), tr("Date and time under the address, from when the parked address last changed"), since) {
+        ToggleRow(tr("Parked since"), tr("Date and time under the address"), since) {
             since = it; store.carSince = it; onChanged()
         }
+    }
+    if (since) {
+        Spacer(Modifier.height(8.dp))
+        Grouped {
+            EntityChooser(
+                store, tr("Since comes from"), ha.sinceEntity,
+                listOf("sensor", "binary_sensor", "input_datetime", "device_tracker", "lock"),
+                last = true, blank = tr("Parked address (when it last changed)"),
+            ) {
+                saveHa(ha.copy(sinceEntity = it))
+                hr.divanguz.homepanel.work.Refresh.now(app)
+            }
+        }
+        T(
+            tr("A date-and-time sensor shows its value; any other entity shows when its state last changed."),
+            13, Ink3, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp),
+        )
     }
     Spacer(Modifier.height(16.dp))
     var split by remember { mutableStateOf(store.carSplitTap) }
@@ -802,6 +819,8 @@ private fun EntityChooser(
     current: String,
     domains: List<String>,
     last: Boolean = false,
+    /** Shown instead of "Not set" when blank is a fine choice (it then isn't amber). */
+    blank: String? = null,
     onPick: (String) -> Unit,
 ) {
     val scope = rememberCoroutineScope()
@@ -812,7 +831,7 @@ private fun EntityChooser(
 
     Item(
         title,
-        error?.let { Summary(it, warn = true) } ?: Summary(current.ifBlank { tr("Not set · tap to choose") }, warn = current.isBlank()),
+        error?.let { Summary(it, warn = true) } ?: Summary(current.ifBlank { blank ?: tr("Not set · tap to choose") }, warn = current.isBlank() && blank == null),
         onClick = {
             open = !open
             if (open && options == null) scope.launch {

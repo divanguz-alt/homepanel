@@ -24,6 +24,8 @@ data class HaSettings(
     val locationEntity: String = "",
     /** Car lock (lock.* or a binary_sensor with device_class lock); blank until "Test" finds one. */
     val lockEntity: String = "",
+    /** Where "Since …" comes from: a timestamp sensor's value, or any entity's last change. Blank: the parked address's. */
+    val sinceEntity: String = "",
 ) {
     val isConfigured: Boolean get() = token.isNotBlank() && (internalUrl.isNotBlank() || externalUrl.isNotBlank())
 }
@@ -46,6 +48,7 @@ class Settings private constructor(private val prefs: SharedPreferences) {
             carImageEntity = prefs.getString(CAR_IMAGE, d.carImageEntity)!!,
             locationEntity = prefs.getString(LOCATION, d.locationEntity)!!,
             lockEntity = prefs.getString(LOCK, d.lockEntity)!!,
+            sinceEntity = prefs.getString(SINCE_ENTITY, d.sinceEntity)!!,
         )
     }
 
@@ -63,6 +66,7 @@ class Settings private constructor(private val prefs: SharedPreferences) {
             .putString(CAR_IMAGE, s.carImageEntity.trim())
             .putString(LOCATION, s.locationEntity.trim())
             .putString(LOCK, s.lockEntity.trim())
+            .putString(SINCE_ENTITY, s.sinceEntity.trim())
             .apply()
     }
 
@@ -307,6 +311,7 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         private const val CAR_IMAGE = "ha_car_image_entity"
         private const val LOCATION = "ha_location_entity"
         private const val LOCK = "ha_lock_entity"
+        private const val SINCE_ENTITY = "ha_since_entity"
         private const val CAR_NAME = "car_name"
         private const val CAR_APP = "car_app"
         private const val CAR_APP_2 = "car_app_2"
