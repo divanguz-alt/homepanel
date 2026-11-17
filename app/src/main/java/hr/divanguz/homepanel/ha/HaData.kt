@@ -88,6 +88,16 @@ data class CarData(
     val since: Long? = null,
 )
 
+/** An open item on a HA to-do list (Google Tasks lists show up as todo.* entities). */
+@Serializable
+data class TodoTask(
+    val entity: String,
+    val uid: String,
+    val summary: String,
+    /** "2026-11-18", or a date and time with offset; null when the task has no due date. */
+    val due: String? = null,
+)
+
 /** Last good values. Each part keeps its own timestamp so one failing entity doesn't age the other. */
 @Serializable
 data class HaSnapshot(
@@ -100,6 +110,9 @@ data class HaSnapshot(
     val rain: RainNowcast? = null,
     /** Version of the cached map; changes only when HA reports a new parked address. */
     val carMapVersion: String? = null,
+    /** Open tasks from the to-do lists picked in Calendar settings. */
+    val tasks: List<TodoTask> = emptyList(),
+    val tasksAt: Long = 0,
     val error: String? = null,
 )
 
@@ -218,6 +231,49 @@ object HaFetch {
                 ?.let { id -> runCatching { client.state(id) }.getOrNull()?.let(::sinceOf) }
                 ?: parked?.let(::sinceOf),
         )
+    }
+
+    /** Open items of each to-do list, in the lists' own order. */
+    fun tasks(client: HaClient, lists: List<String>): List<TodoTask> {
+        if (lists.isEmpty()) return emptyList()
+        val body = kotlinx.serialization.json.buildJsonObject {
+            put("entity_id", kotlinx.serialization.json.JsonArray(lists.map { kotlinx.serialization.json.JsonPrimitive(it) }))
+            put("status", kotlinx.serialization.json.JsonPrimitive("needs_action"))
+        }
+        val answer = client.service("todo", "get_items", body, response = true) as? JsonObject
+            ?: throw HaException("No answer from todo.get_items")
+        return parseTasks(answer, lists)
+    }
+
+    /** `{"service_response": {"todo.x": {"items": [...]}}}` → tasks, list by list. */
+    internal fun parseTasks(answer: JsonObject, lists: List<String>): List<TodoTask> {
+        val byList = answer["service_response"] as? JsonObject ?: return emptyList()
+        return lists.flatMap { id ->
+            ((byList[id] as? JsonObject)?.get("items") as? kotlinx.serialization.json.JsonArray).orEmpty().mapNotNull { e ->
+                val o = e as? JsonObject ?: return@mapNotNull null
+                if (o["status"].str() == "completed") return@mapNotNull null
+                val summary = o["summary"].str()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+                TodoTask(entity = id, uid = o["uid"].str() ?: summary, summary = summary, due = o["due"].str())
+            }
+        }
+    }
+
+    /** Marks an item done (todo.update_item takes the uid or the summary). */
+    fun completeTask(client: HaClient, task: TodoTask) {
+        client.service("todo", "update_item", kotlinx.serialization.json.buildJsonObject {
+            put("entity_id", kotlinx.serialization.json.JsonPrimitive(task.entity))
+            put("item", kotlinx.serialization.json.JsonPrimitive(task.uid))
+            put("status", kotlinx.serialization.json.JsonPrimitive("completed"))
+        })
+    }
+
+    /** Adds an item; [due] is a date ("2026-11-18") or null. */
+    fun addTask(client: HaClient, list: String, summary: String, due: java.time.LocalDate?) {
+        client.service("todo", "add_item", kotlinx.serialization.json.buildJsonObject {
+            put("entity_id", kotlinx.serialization.json.JsonPrimitive(list))
+            put("item", kotlinx.serialization.json.JsonPrimitive(summary))
+            if (due != null) put("due_date", kotlinx.serialization.json.JsonPrimitive(due.toString()))
+        })
     }
 
     /**

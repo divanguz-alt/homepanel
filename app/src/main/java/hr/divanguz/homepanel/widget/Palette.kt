@@ -116,6 +116,8 @@ object Palette {
     val trackP get() = p { it.track }
     val hairP get() = p { it.hair }
     val borderP get() = p { it.border }
+    /** The lit part of the list switch, over [trackP]. */
+    val hairOnP get() = p { it.ink.copy(alpha = 0.16f) }
     /** Blue for the chance of rain, darker on a light card. */
     val rainP get() = if (auto) androidx.glance.color.ColorProvider(Color(0xFF2F6FB0), Color(0xFF7FB2E5))
         else ColorProvider(if (theme.light) Color(0xFF2F6FB0) else Color(0xFF7FB2E5))

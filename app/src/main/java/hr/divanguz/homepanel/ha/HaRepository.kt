@@ -22,6 +22,21 @@ object HaRepository {
             ?.let { runCatching { json.decodeFromString<HaSnapshot>(it) }.getOrNull() }
             ?: HaSnapshot()
 
+    /** Fetches only the to-do lists, e.g. right after a task was added or completed. */
+    fun refreshTasks(context: Context): HaSnapshot {
+        val old = cached(context)
+        val settings = Settings.get(context).ha()
+        if (!settings.isConfigured) return old
+        val lists = Settings.get(context).taskLists
+        val tasks = HaFetch.tasks(HaClient(settings), lists)
+        return old.copy(tasks = tasks, tasksAt = System.currentTimeMillis()).also { save(context, it) }
+    }
+
+    /** Drops a task from the cache at once, before HA has confirmed it. */
+    fun withoutTask(context: Context, task: TodoTask): HaSnapshot =
+        cached(context).let { it.copy(tasks = it.tasks.filterNot { t -> t.entity == task.entity && t.uid == task.uid }) }
+            .also { save(context, it) }
+
     private fun save(context: Context, snapshot: HaSnapshot) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putString(KEY, json.encodeToString(HaSnapshot.serializer(), snapshot))
@@ -50,6 +65,9 @@ object HaRepository {
         val map = runCatching { CarMap.refresh(context, client, settings, address) }
             .getOrElse { "failed: ${it.message}" }
         Log.i("HomePanel", "Car map: $map")
+        val lists = Settings.get(context).taskLists
+        val tasks = runCatching { HaFetch.tasks(client, lists) }
+            .onFailure { Log.w("HomePanel", "Tasks: ${it.message}") }
         val error = listOfNotNull(weather.exceptionOrNull(), car.exceptionOrNull())
             .firstOrNull()?.let { it.message ?: it.javaClass.simpleName }
         if (error != null) Log.w("HomePanel", "HA refresh: $error")
@@ -62,6 +80,9 @@ object HaRepository {
             carImageVersion = CarImage.version(context),
             carMapVersion = CarMap.version(context),
             rain = nowcast(client, weather.getOrNull() ?: old.weather) ?: old.rain,
+            // Lists dropped in settings vanish at once, even when the fetch failed.
+            tasks = (tasks.getOrNull() ?: old.tasks).filter { it.entity in lists },
+            tasksAt = if (tasks.isSuccess) now else old.tasksAt,
             error = error,
         )
         save(context, next)

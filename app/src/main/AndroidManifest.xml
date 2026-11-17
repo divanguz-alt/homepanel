@@ -16,6 +16,7 @@
         <package android:name="io.homeassistant.companion.android" />
         <package android:name="io.homeassistant.companion.android.minimal" />
         <package android:name="com.anthropic.claude" />
+        <package android:name="com.google.android.apps.tasks" />
         <!-- Firefox channels, for the search widget. -->
         <package android:name="org.mozilla.firefox" />
         <package android:name="org.mozilla.firefox_beta" />
@@ -134,6 +135,13 @@
             android:excludeFromRecents="true"
             android:noHistory="true"
             android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
+        <activity
+            android:name=".tasks.AddActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:taskAffinity=""
+            android:windowSoftInputMode="adjustResize|stateVisible"
             android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity
             android:name=".widget.OpenAppActivity"

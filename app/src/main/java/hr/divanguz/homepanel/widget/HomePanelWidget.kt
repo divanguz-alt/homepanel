@@ -34,6 +34,7 @@ import hr.divanguz.homepanel.calendar.CalendarSnapshot
 import hr.divanguz.homepanel.calendar.CalendarView
 import hr.divanguz.homepanel.calendar.EventRow
 import hr.divanguz.homepanel.calendar.toView
+import hr.divanguz.homepanel.calendar.withTasks
 import hr.divanguz.homepanel.calendar.newEventIntent
 import hr.divanguz.homepanel.calendar.viewIntent
 import androidx.glance.layout.Alignment
@@ -90,7 +91,7 @@ class HomePanelWidget : GlanceAppWidget() {
             val texts = Texts.of(Settings.get(context).language)
             val look = Settings.get(context).look()
             Palette.use(context, look.theme)
-            CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts, LocalStaticList provides true) {
+            CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts, LocalStaticList provides true, LocalTasks provides ha.tasks) {
                 Panel(panelState(ha, haConfigured = true, claude = claude, claudeBusy = false, carName = Settings.get(context).carName, texts = texts), calendar)
             }
         }
@@ -113,7 +114,10 @@ class HomePanelWidget : GlanceAppWidget() {
             val texts = Texts.of(settings.language)
             val look = settings.look()
             Palette.use(context, look.theme)
-            CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts) {
+            CompositionLocalProvider(
+                LocalLook provides look, LocalTexts provides texts,
+                LocalTasks provides PanelStore.ha(prefs)?.tasks.orEmpty(), LocalListFilter provides PanelStore.filter(prefs),
+            ) {
                 val state = panelState(
                     PanelStore.ha(prefs), settings.ha().isConfigured,
                     PanelStore.claude(prefs), PanelStore.claudeBusy(prefs),
@@ -159,7 +163,7 @@ suspend fun previewViews(context: Context, look: Look, size: androidx.compose.ui
     val calendar = Preview.calendar(context)
     return androidx.glance.appwidget.GlanceRemoteViews().compose(context, size) {
         Palette.use(context, look.theme)
-        CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts, LocalStaticList provides true) {
+        CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts, LocalStaticList provides true, LocalTasks provides ha.tasks) {
             Panel(panelState(ha, haConfigured = true, claude = claude, claudeBusy = false, carName = settings.carName, texts = texts), calendar)
         }
     }.remoteViews
@@ -365,7 +369,13 @@ private fun WeatherNow(
 @Composable
 private fun CalendarZone(snapshot: CalendarSnapshot?, context: Context, modifier: GlanceModifier, first: Boolean = false) {
     val calendarApp = launchIntent(context, Packages.CALENDAR)
-    val view: CalendarView? = snapshot?.takeIf { it.hasPermission }?.toView(locale = LocalTexts.current.locale, allDayLabel = LocalTexts.current.allDay)
+    val texts = LocalTexts.current
+    val tasks = shownTasks(context, LocalTasks.current)
+    val switch = Settings.get(context).taskLists.isNotEmpty()
+    val filter = if (switch) LocalListFilter.current else "calendar"
+    val base = snapshot?.takeIf { it.hasPermission }?.toView(locale = texts.locale, allDayLabel = texts.allDay)
+        ?: CalendarView(false, emptyList()).takeIf { filter == "tasks" }
+    val view: CalendarView? = base?.withTasks(tasks, filter, texts.noDate, locale = texts.locale)
     val k = LocalLook.current.calendar
     Column(
         modifier = modifier
@@ -379,21 +389,23 @@ private fun CalendarZone(snapshot: CalendarSnapshot?, context: Context, modifier
         ) {
             Label(LocalTexts.current.comingUp, sz(15, k), Palette.ink3P)
             Spacer(GlanceModifier.defaultWeight())
-            if (view?.todayEmpty == true) Label(LocalTexts.current.todayNoEvents, sz(15, k), Palette.ink3P)
+            if (switch) ListSwitch(k)
+            else if (view?.todayEmpty == true) Label(LocalTexts.current.todayNoEvents, sz(15, k), Palette.ink3P)
             // New event in the default calendar app; a wide box so the small plus is easy to hit.
             Box(
-                modifier = GlanceModifier.width(dz(44, k)).height(dz(32, k)).opens(newEventIntent()),
+                modifier = GlanceModifier.width(dz(44, k)).height(dz(32, k)).opens(plusTap(context, filter)),
                 contentAlignment = Alignment.CenterEnd,
             ) {
                 Icon(R.drawable.ic_add, dz(20, k), Palette.ink2P)
             }
         }
         when {
-            snapshot != null && !snapshot.hasPermission -> MessageRow(
+            filter != "tasks" && snapshot != null && !snapshot.hasPermission -> MessageRow(
                 LocalTexts.current.allowCalendar,
                 settingsIntent(context),
             )
             view == null -> MessageRow(LocalTexts.current.loading, calendarApp)
+            view.rows.isEmpty() && filter == "tasks" -> MessageRow(texts.noTasks, OpenAppActivity.intent(context, hr.divanguz.homepanel.calendar.GOOGLE_TASKS))
             view.rows.isEmpty() -> MessageRow(LocalTexts.current.nothingNext(Settings.get(context).calendarDays), calendarApp)
             LocalStaticList.current -> Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight()) {
                 val shown = view.rows.take(STATIC_ROWS)
@@ -422,20 +434,25 @@ private fun MessageRow(text: String, tap: Intent?) {
 @Composable
 private fun EventItem(row: EventRow, isLast: Boolean) {
     val k = LocalLook.current.calendar
-    Column(modifier = GlanceModifier.fillMaxWidth().opens(row.event.viewIntent())) {
+    Column(modifier = GlanceModifier.fillMaxWidth().opens(rowTap(LocalContext.current, row))) {
         Row(
             modifier = GlanceModifier.fillMaxWidth().height(if (isLast) RowHeight * k else RowHeight * k - 1.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Label(
-                row.dayLabel, sz(15, k), Palette.ink2P,
+                row.dayLabel, sz(15, k), if (row.overdue) OverdueP else Palette.ink2P,
                 modifier = GlanceModifier.width(dz(64, k)),
             )
             Spacer(GlanceModifier.width(12.dp))
             Label(row.time, sz(16, k), Palette.ink2P, modifier = GlanceModifier.width(dz(48, k)))
-            Spacer(GlanceModifier.width(12.dp))
+            // A task's ring (tap: done); its target reaches 6dp into the gaps around it.
+            if (row.task != null) {
+                Spacer(GlanceModifier.width(6.dp))
+                TaskRing(row.task, dz(10, k), dz(9, k) + 12.dp, RowHeight * k - 1.dp)
+                Spacer(GlanceModifier.width((dz(10, k) - 6.dp).coerceAtLeast(2.dp)))
+            } else Spacer(GlanceModifier.width(12.dp))
             // The event's color, as the calendar app shows it.
-            row.event.color?.let { argb ->
+            row.event?.color?.let { argb ->
                 Box(
                     modifier = GlanceModifier
                         .width(dz(9, k)).height(dz(9, k))

@@ -84,6 +84,25 @@ object PanelStore {
         }
     }
 
+    /** Puts new Home Assistant values (e.g. tasks after an edit) into every widget and redraws. */
+    suspend fun pushHa(context: Context, snapshot: HaSnapshot) {
+        val haJson = json.encodeToString(HaSnapshot.serializer(), snapshot)
+        for ((widget, id) in placed(context)) {
+            updateAppWidgetState(context, id) { it[HA] = haJson }
+            widget.update(context, id)
+        }
+    }
+
+    private val FILTER = stringPreferencesKey("list_filter")
+
+    /** What the calendar list shows on this widget: "all", "calendar" or "tasks". */
+    fun filter(prefs: Preferences): String = prefs[FILTER] ?: "all"
+
+    suspend fun setFilter(context: Context, id: GlanceId, value: String) {
+        updateAppWidgetState(context, id) { it[FILTER] = value }
+        HomePanelWidget().update(context, id)
+    }
+
     fun putCalendar(prefs: MutablePreferences, snapshot: CalendarSnapshot) {
         prefs[CALENDAR] = json.encodeToString(CalendarSnapshot.serializer(), snapshot)
     }

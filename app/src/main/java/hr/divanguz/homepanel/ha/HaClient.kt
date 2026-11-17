@@ -100,6 +100,11 @@ class HaClient(private val settings: HaSettings) {
         return call("/api/services/weather/get_forecasts?return_response", body)?.let(json::parseToJsonElement)
     }
 
+    /** Calls a HA service; with [response] the service's own answer is returned (`service_response`). */
+    fun service(domain: String, service: String, body: JsonObject, response: Boolean = false): JsonElement? =
+        call("/api/services/$domain/$service" + if (response) "?return_response" else "", body.toString())
+            ?.let(json::parseToJsonElement)
+
     /** Raw bytes of a path on the HA server, or of an absolute URL (entity_picture can be either). */
     fun bytes(path: String): ByteArray? {
         val absolute = path.startsWith("http://") || path.startsWith("https://")

@@ -109,6 +109,20 @@ hairline nine-patch is tinted. The car map bitmap is not themed.
 - Previews (picker, settings) can't host a LazyColumn: `LocalStaticList` makes the calendar a plain
   column of the first rows. Settings → "Last updated" shows when weather, car and Claude last answered.
 
+## Tasks (Google Tasks through Home Assistant)
+
+- Calendar settings → Tasks: switches for HA `todo.*` lists (`Settings.taskLists`); HA's Google Tasks
+  integration turns each Google list into one. Open items come from `todo.get_items?return_response`
+  every refresh (`HaSnapshot.tasks`) and merge into the calendar list by due day (`withTasks` in
+  `CalendarRows.kt`): overdue first with an amber day, undated last under "No date"; a ring instead of
+  the colour dot. Tapping the ring completes it (`todo.update_item`, `CompleteTaskAction`); tapping the
+  row opens Google Tasks (`com.google.android.apps.tasks`) through `OpenAppActivity`.
+- With a list on, the calendar header gets an "All · Calendar · Tasks" pill (`ListSwitch`, per widget in
+  Glance state, `FilterAction`). The plus follows it: Calendar → new event, Tasks → quick task entry,
+  All → a chooser (`tasks/AddActivity`, a sheet over the home screen; adds via `todo.add_item`).
+- Glance keeps a background that is merely left out on reapply: always set one (transparent when off).
+  Tinted shape drawables fill in; use vectors for rings.
+
 ## Language, rain, location
 
 Widget text lives in `widget/Texts.kt` (English / Croatian, Settings → Appearance → Widget language;
@@ -162,6 +176,7 @@ to Firefox. No Firefox → default browser.
 | Date + forecast city | device clock/locale; city from the weather provider | opens HomePanel settings (invisible shortcut, user request) |
 | Weather | Where the phone is (lat/lon of the phone's HA companion `device_tracker`, auto-detected by Test HA; else HA home) → provider chosen in Settings → Weather source: Open-Meteo (best match / DWD ICON / ECMWF / Météo-France models), MET Norway, DHMZ (Croatia only: nearest vrijeme.hr station + meteo.hr 7-day feed cached by ETag; symbol codes undocumented, condition derived from precipitation), or the HA entity; failures fall back to Open-Meteo then HA. AQI always Open-Meteo `us_aqi`. HRT has no public API (it shows DHMZ data). Settings can compare all providers live. fetched hourly, on a >3 km move, or via the widget's refresh button; city the forecast is for shown under the date. Fallback: HA weather entity (`weather.forecast_home`, forecasts via `weather/get_forecasts`). Samsung Weather data is not accessible to third-party apps. | launch Samsung Weather `com.sec.android.daemonapp` (MAIN activity fallback, it has no launcher icon by default) |
 | Calendar header | n/a | launch Samsung Calendar `com.samsung.android.calendar` |
+| Task row | HA `todo.*` lists picked in Calendar settings (see Tasks) | Google Tasks app; the ring completes the task |
 | Calendar row | `CalendarContract.Instances` (all visible calendars), next 14 days | `ACTION_VIEW` on the event URI with `EXTRA_EVENT_BEGIN_TIME`/`EXTRA_EVENT_END_TIME` (opens in the default calendar app) |
 | Car address + area | parked-address sensor picked in Car settings: `state` = address, attribute `area` (chip only if non-empty) | the app picked in Car settings ("Tapping the car opens"), else Home Assistant `io.homeassistant.companion.android`. With "Two tap areas" on, the right (map/pin) half opens that app and the left (text) half a second picked app (`carApp2`, Home Assistant by default) |
 | Car range | range sensor + optional backup sensor, picked in Car settings (show `unit_of_measurement`) | same as car |

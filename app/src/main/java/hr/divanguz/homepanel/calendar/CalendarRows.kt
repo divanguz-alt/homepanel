@@ -17,7 +17,14 @@ data class EventRow(
     /** First and last day of an event that runs over several days ("15 Oct – 14 Nov"), else null. */
     val span: String? = null,
     val title: String,
-    val event: CalEvent,
+    /** Null for a task row. */
+    val event: CalEvent?,
+    /** Set for a task row (an open item on a HA to-do list). */
+    val task: hr.divanguz.homepanel.ha.TodoTask? = null,
+    /** A task whose due day has passed. */
+    val overdue: Boolean = false,
+    /** A task without a due date; listed last, under "No date". */
+    val undated: Boolean = false,
 )
 
 data class CalendarView(val todayEmpty: Boolean, val rows: List<EventRow>)
@@ -59,6 +66,48 @@ fun CalendarSnapshot.toView(
 }
 
 /**
+ * The calendar rows with open tasks merged in by due day ([filter]: "all", "calendar" or "tasks").
+ * Overdue tasks keep their own (past) day and so come first; undated ones come last.
+ */
+fun CalendarView.withTasks(
+    tasks: List<hr.divanguz.homepanel.ha.TodoTask>,
+    filter: String,
+    noDate: String,
+    nowMillis: Long = System.currentTimeMillis(),
+    zone: ZoneId = ZoneId.systemDefault(),
+    locale: Locale = Locale.getDefault(),
+): CalendarView {
+    val events = if (filter == "tasks") emptyList() else rows
+    if (filter == "calendar") return copy(rows = events)
+    val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
+    val dayFmt = DateTimeFormatter.ofPattern("EEE d", locale)
+    val timeFmt = DateTimeFormatter.ofPattern("HH:mm", locale)
+    val taskRows = tasks.map { t ->
+        val due = t.due?.let { parseDue(it, zone) }
+        val date = due?.first
+        EventRow(
+            id = (t.entity + "/" + t.uid).hashCode().toLong() shl 20,
+            date = date ?: java.time.LocalDate.MAX,
+            dayLabel = date?.format(dayFmt)?.replace(".", "")?.uppercase(locale) ?: noDate,
+            time = due?.second?.format(timeFmt).orEmpty(),
+            title = t.summary,
+            event = null,
+            task = t,
+            overdue = date != null && date < today,
+            undated = date == null,
+        )
+    }
+    // Stable: within a day, events (already in time order) stay ahead of tasks.
+    return copy(rows = (events + taskRows).sortedBy { it.date })
+}
+
+/** HA's due: "2026-11-18" (a day) or a date and time with offset → (local day, time or null). */
+internal fun parseDue(v: String, zone: ZoneId): Pair<java.time.LocalDate, java.time.LocalTime?>? =
+    runCatching { java.time.LocalDate.parse(v) to null }.getOrNull()
+        ?: runCatching { java.time.OffsetDateTime.parse(v).atZoneSameInstant(zone).let { it.toLocalDate() to it.toLocalTime() } }.getOrNull()
+        ?: runCatching { java.time.LocalDateTime.parse(v).let { it.toLocalDate() to it.toLocalTime() } }.getOrNull()
+
+/**
  * "15 Oct – 14 Nov" / "15.10. – 14.11." for all-day events over several days and timed ones of a
  * day or longer; "15 – 20 Oct" / "15. – 20.10." within a month. Short overnight events get none.
  */
@@ -78,6 +127,8 @@ internal fun spanLabel(e: CalEvent, zone: ZoneId, locale: Locale): String? {
         else "${fmt("d MMM", first)} – ${fmt("d MMM", last)}"
     }
 }
+
+const val GOOGLE_TASKS = "com.google.android.apps.tasks"
 
 /** Opens the default calendar app's "new event" screen. */
 fun newEventIntent(): Intent =

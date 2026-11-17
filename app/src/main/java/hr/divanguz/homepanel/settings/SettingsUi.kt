@@ -716,11 +716,50 @@ private fun CalendarPage(store: Settings, onChanged: () -> Unit) {
         }
         Spacer(Modifier.height(16.dp))
     }
+    TaskListsSection(store, onChanged)
     Grouped {
         Item(tr("Open calendar"), Summary(tr("Your default calendar app")), onClick = {
             context.startActivity(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_APP_CALENDAR).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }, last = true)
     }
+}
+
+/** HA to-do lists (Google Tasks through its HA integration) whose open items join the calendar list. */
+@Composable
+private fun TaskListsSection(store: Settings, onChanged: () -> Unit) {
+    val app = LocalContext.current.applicationContext
+    var picked by remember { mutableStateOf(store.taskLists) }
+    var lists by remember { mutableStateOf<List<HaFetch.EntityOption>?>(null) }
+    var failed by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        val s = store.ha()
+        lists = withContext(Dispatchers.IO) {
+            if (!s.isConfigured) null else runCatching { HaFetch.entities(HaClient(s), listOf("todo")) }.getOrNull()
+        }
+        failed = lists == null
+    }
+    SectionLabel(tr("Tasks"))
+    Grouped(padded = true) {
+        val known = lists
+        when {
+            failed -> T(tr("Couldn't reach Home Assistant"), 15, Ink3, modifier = Modifier.padding(vertical = 10.dp))
+            known == null -> T(tr("Loading…"), 15, Ink3, modifier = Modifier.padding(vertical = 10.dp))
+            known.isEmpty() -> T(tr("No to-do lists in Home Assistant. Add the Google Tasks integration there first."), 15, Ink3, modifier = Modifier.padding(vertical = 10.dp))
+            else -> known.forEach { o ->
+                ToggleRow(o.name, trf("%s open · %s", o.state, o.entityId), o.entityId in picked) { on ->
+                    picked = if (on) picked + o.entityId else picked - o.entityId
+                    store.taskLists = picked
+                    hr.divanguz.homepanel.work.Refresh.now(app)
+                    onChanged()
+                }
+            }
+        }
+    }
+    T(
+        tr("Open tasks show in the calendar list with a ring; tap the ring to mark one done. With a list on, the widget gets an All · Calendar · Tasks switch."),
+        13, Ink3, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp),
+    )
+    Spacer(Modifier.height(16.dp))
 }
 
 @Composable

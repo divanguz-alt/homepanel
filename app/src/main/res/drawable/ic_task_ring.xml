@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- A task's hollow ring (tap: done). A vector, so tinting keeps the inside empty. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="12dp" android:height="12dp"
+    android:viewportWidth="12" android:viewportHeight="12">
+    <path
+        android:pathData="M6,1.25 A4.75,4.75 0 1,1 5.99,1.25 Z"
+        android:strokeWidth="1.5"
+        android:strokeColor="#FFFFFFFF"
+        android:fillColor="#00000000" />
+</vector>

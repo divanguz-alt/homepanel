@@ -124,6 +124,16 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         get() = prefs.getString(HIDDEN_CALENDARS, null).orEmpty().split(',').mapNotNull { it.trim().toLongOrNull() }.toSet()
         set(v) = prefs.edit().putString(HIDDEN_CALENDARS, v.joinToString(",")).apply()
 
+    /** HA to-do lists (todo.*, e.g. Google Tasks) whose open items join the calendar list. */
+    var taskLists: List<String>
+        get() = prefs.getString(TASK_LISTS, null).orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }
+        set(v) = prefs.edit().putString(TASK_LISTS, v.joinToString(",")).apply()
+
+    /** The list the last task was added to, picked first next time. */
+    var lastTaskList: String
+        get() = prefs.getString(LAST_TASK_LIST, null).orEmpty()
+        set(v) = prefs.edit().putString(LAST_TASK_LIST, v).apply()
+
     /** Weather is fetched at most this often (minutes), unless refreshed by hand or after a move. */
     var weatherEveryMin: Int
         get() = prefs.getInt(WEATHER_EVERY_MIN, 60)
@@ -317,6 +327,8 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         private const val CAR_APP_2 = "car_app_2"
         private const val CAR_SPLIT_TAP = "car_split_tap"
         private const val CAR_SINCE = "car_since"
+        private const val TASK_LISTS = "task_lists"
+        private const val LAST_TASK_LIST = "last_task_list"
         private const val CALENDAR_DAYS = "calendar_days"
         private const val WEATHER_EVERY_MIN = "weather_every_min"
         private const val WEATHER_MOVE_KM = "weather_move_km"

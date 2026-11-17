@@ -27,6 +27,9 @@ import androidx.glance.text.FontWeight
 import androidx.glance.unit.ColorProvider
 import hr.divanguz.homepanel.R
 import hr.divanguz.homepanel.calendar.CalendarSnapshot
+import hr.divanguz.homepanel.calendar.CalendarView
+import hr.divanguz.homepanel.calendar.withTasks
+import androidx.glance.LocalContext
 import hr.divanguz.homepanel.calendar.EventRow
 import hr.divanguz.homepanel.calendar.newEventIntent
 import hr.divanguz.homepanel.calendar.toView
@@ -201,7 +204,13 @@ private fun ForecastDayB(day: ForecastDayState, main: ColorProvider, second: Col
 internal fun CalendarZoneB(snapshot: CalendarSnapshot?, context: Context, modifier: GlanceModifier, first: Boolean = false) {
     val calendarApp = launchIntent(context, Packages.CALENDAR)
     val texts = LocalTexts.current
-    val view = snapshot?.takeIf { it.hasPermission }?.toView(locale = texts.locale, allDayLabel = texts.allDay)
+    val tasks = shownTasks(context, LocalTasks.current)
+    val filter = if (tasks.isEmpty() && Settings.get(context).taskLists.isEmpty()) "calendar" else LocalListFilter.current
+    // The tasks-only list needs no calendar access.
+    val base = snapshot?.takeIf { it.hasPermission }?.toView(locale = texts.locale, allDayLabel = texts.allDay)
+        ?: CalendarView(false, emptyList()).takeIf { filter == "tasks" }
+    val view = base?.withTasks(tasks, filter, texts.noDate, locale = texts.locale)
+    val switch = Settings.get(context).taskLists.isNotEmpty()
     val k = LocalLook.current.calendar
     val today = LocalDate.now()
     val locale = texts.locale
@@ -216,7 +225,10 @@ internal fun CalendarZoneB(snapshot: CalendarSnapshot?, context: Context, modifi
             // (day column + dot 10 + gap 10).
             DayLabel(today, locale, k, FontWeight.Medium)
             Spacer(GlanceModifier.width(DAY_GAP))
-            if (view?.todayEmpty == true) {
+            if (switch) {
+                Spacer(GlanceModifier.defaultWeight())
+                ListSwitch(k)
+            } else if (view?.todayEmpty == true) {
                 // A hollow dot in the dot column keeps "Nothing today" in line with the events below.
                 Icon(R.drawable.dot_ring, dz(10, k), Palette.ink3P)
                 Spacer(GlanceModifier.width(10.dp))
@@ -224,15 +236,16 @@ internal fun CalendarZoneB(snapshot: CalendarSnapshot?, context: Context, modifi
             }
             Spacer(GlanceModifier.defaultWeight())
             Box(
-                modifier = GlanceModifier.width(dz(44, k)).height(dz(44, k)).opens(newEventIntent()),
+                modifier = GlanceModifier.width(dz(44, k)).height(dz(44, k)).opens(plusTap(context, filter)),
                 contentAlignment = Alignment.Center,
             ) {
                 Icon(R.drawable.ic_add, dz(22, k), Palette.ink2P)
             }
         }
         when {
-            snapshot != null && !snapshot.hasPermission -> NoteB(texts.allowCalendar, k, settingsIntent(context))
+            filter != "tasks" && snapshot != null && !snapshot.hasPermission -> NoteB(texts.allowCalendar, k, settingsIntent(context))
             view == null -> NoteB(texts.loading, k, calendarApp)
+            view.rows.isEmpty() && filter == "tasks" -> NoteB(texts.noTasks, k, OpenAppActivity.intent(context, hr.divanguz.homepanel.calendar.GOOGLE_TASKS))
             view.rows.isEmpty() -> NoteB(texts.nothingNext(Settings.get(context).calendarDays), k, calendarApp)
             LocalStaticList.current -> Column(modifier = GlanceModifier.fillMaxWidth().defaultWeight().padding(end = 18.dp)) {
                 view.rows.take(STATIC_ROWS).forEachIndexed { i, row -> EventB(view.rows, i, row, today, k, locale) }
@@ -258,21 +271,31 @@ private fun EventB(rows: List<EventRow>, i: Int, row: EventRow, today: LocalDate
 
 @Composable
 private fun EventRowB(row: EventRow, day: LocalDate?, isToday: Boolean, gap: Dp, k: Float, locale: Locale) {
-    Column(modifier = GlanceModifier.fillMaxWidth().opens(row.event.viewIntent())) {
+    val context = LocalContext.current
+    Column(modifier = GlanceModifier.fillMaxWidth().opens(rowTap(context, row))) {
         if (gap > 0.dp) Spacer(GlanceModifier.height(gap))
         Row(modifier = GlanceModifier.fillMaxWidth().height(dz(26, k)), verticalAlignment = Alignment.CenterVertically) {
             // Only the first event of a day carries the label; "Today" stands alone.
             when {
                 day == null -> Spacer(GlanceModifier.width(dz(DAY_COLUMN, k)))
+                row.undated -> Label(LocalTexts.current.noDate, sz(15, k), Palette.ink2P, modifier = GlanceModifier.width(dz(DAY_COLUMN, k)))
+                row.overdue -> DayLabel(day, locale, k, FontWeight.Normal, OverdueP)
                 isToday -> Label(LocalTexts.current.today, sz(15, k), Palette.ink2P, modifier = GlanceModifier.width(dz(DAY_COLUMN, k)))
                 else -> DayLabel(day, locale, k, FontWeight.Normal)
             }
-            Spacer(GlanceModifier.width(DAY_GAP))
-            Dot(dz(10, k), ColorProvider(Color((row.event.color ?: 0xFF8A909C.toInt()) or 0xFF000000.toInt())))
-            Spacer(GlanceModifier.width(10.dp))
+            if (row.task != null) {
+                // The ring's tap target reaches 6dp into the gaps on both sides, so the title stays in line.
+                Spacer(GlanceModifier.width(DAY_GAP - 6.dp))
+                TaskRing(row.task, dz(12, k), dz(10, k) + 12.dp, dz(26, k))
+                Spacer(GlanceModifier.width(4.dp))
+            } else {
+                Spacer(GlanceModifier.width(DAY_GAP))
+                Dot(dz(10, k), ColorProvider(Color((row.event?.color ?: 0xFF8A909C.toInt()) or 0xFF000000.toInt())))
+                Spacer(GlanceModifier.width(10.dp))
+            }
             Label(row.title, sz(16, k), Palette.inkP, modifier = GlanceModifier.defaultWeight())
             // Events over several days show their first and last day; other all-day events show no time.
-            val right = row.span ?: row.time.takeIf { !row.event.allDay }
+            val right = row.span ?: row.time.takeIf { row.event?.allDay == false || (row.task != null && it.isNotEmpty()) }
             if (right != null) {
                 Spacer(GlanceModifier.width(8.dp))
                 Label(right, sz(15, k), Palette.ink3P)
@@ -283,11 +306,11 @@ private fun EventRowB(row: EventRow, day: LocalDate?, isToday: Boolean, gap: Dp,
 
 /** "Fri" on the left edge of the day column, "23 Oct" on its right edge. */
 @Composable
-private fun DayLabel(date: LocalDate, locale: Locale, k: Float, weight: FontWeight) {
+private fun DayLabel(date: LocalDate, locale: Locale, k: Float, weight: FontWeight, color: ColorProvider = Palette.ink2P) {
     Row(modifier = GlanceModifier.width(dz(DAY_COLUMN, k)), verticalAlignment = Alignment.CenterVertically) {
-        Label(titleCase(date.format(DateTimeFormatter.ofPattern("EEE", locale)), locale), sz(15, k), Palette.ink2P, weight = weight)
+        Label(titleCase(date.format(DateTimeFormatter.ofPattern("EEE", locale)), locale), sz(15, k), color, weight = weight)
         Spacer(GlanceModifier.defaultWeight())
-        Label(date.format(DateTimeFormatter.ofPattern("d MMM", locale)).replace(".", ""), sz(15, k), Palette.ink2P, weight = weight)
+        Label(date.format(DateTimeFormatter.ofPattern("d MMM", locale)).replace(".", ""), sz(15, k), color, weight = weight)
     }
 }
 
