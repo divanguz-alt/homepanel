@@ -67,7 +67,7 @@ import hr.divanguz.homepanel.ha.CarMap
  */
 internal val LocalStaticList = androidx.compose.runtime.staticCompositionLocalOf { false }
 internal const val STATIC_ROWS = 9
-private val RowHeight = 52.dp
+internal val RowHeight = 52.dp
 /** Fixed so the car cell's map can be sized exactly; fits the Claude column's content. */
 private val GridHeight = 164.dp
 /** Below these widget heights the calendar, then the car/Claude grid, are left out. */
@@ -368,6 +368,10 @@ private fun WeatherNow(
 
 @Composable
 private fun CalendarZone(snapshot: CalendarSnapshot?, context: Context, modifier: GlanceModifier, first: Boolean = false) {
+    if (sideBySide(context)) {
+        SplitZone(snapshot, context, modifier, top = if (first) 18.dp else 12.dp, bottom = 4.dp)
+        return
+    }
     val calendarApp = launchIntent(context, Packages.CALENDAR)
     val texts = LocalTexts.current
     val tasks = shownTasks(context, LocalTasks.current)
@@ -756,11 +760,15 @@ internal fun Label(
     modifier: GlanceModifier = GlanceModifier,
     weight: FontWeight = FontWeight.Normal,
     align: TextAlign = TextAlign.Start,
+    underline: Boolean = false,
 ) {
     Text(
         text = text,
         maxLines = 1,
         modifier = modifier,
-        style = TextStyle(color = color, fontSize = size, fontWeight = weight, textAlign = align),
+        style = TextStyle(
+            color = color, fontSize = size, fontWeight = weight, textAlign = align,
+            textDecoration = if (underline) androidx.glance.text.TextDecoration.Underline else null,
+        ),
     )
 }

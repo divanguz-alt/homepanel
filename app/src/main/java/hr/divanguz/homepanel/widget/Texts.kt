@@ -15,6 +15,7 @@ data class Texts(
     val waitingHa: String,
     val noDate: String,
     val noTasks: String,
+    val noEvents: String,
     /** The list switch: all, calendar, tasks. */
     val filters: List<String>,
     /** Car parked since: (day word or date, time). */
@@ -76,6 +77,7 @@ data class Texts(
             waitingHa = "Waiting for Home Assistant",
             noDate = "No date",
             noTasks = "No open tasks",
+            noEvents = "No events",
             filters = listOf("All", "Calendar", "Tasks"),
             since = { d, t -> "Since $d $t" },
             todayWord = "today",
@@ -125,6 +127,7 @@ data class Texts(
             waitingHa = "Čekam Home Assistant",
             noDate = "Bez datuma",
             noTasks = "Nema otvorenih zadataka",
+            noEvents = "Nema događaja",
             filters = listOf("Sve", "Kalendar", "Zadaci"),
             since = { d, t -> "Od $d $t" },
             todayWord = "danas",

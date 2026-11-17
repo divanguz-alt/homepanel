@@ -129,6 +129,11 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         get() = prefs.getString(TASK_LISTS, null).orEmpty().split(',').map { it.trim() }.filter { it.isNotEmpty() }
         set(v) = prefs.edit().putString(TASK_LISTS, v.joinToString(",")).apply()
 
+    /** Calendar and tasks as two columns instead of one list with an All · Calendar · Tasks switch. */
+    var tasksSideBySide: Boolean
+        get() = prefs.getBoolean(TASKS_SIDE_BY_SIDE, false)
+        set(v) = prefs.edit().putBoolean(TASKS_SIDE_BY_SIDE, v).apply()
+
     /** The list the last task was added to, picked first next time. */
     var lastTaskList: String
         get() = prefs.getString(LAST_TASK_LIST, null).orEmpty()
@@ -328,6 +333,7 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         private const val CAR_SPLIT_TAP = "car_split_tap"
         private const val CAR_SINCE = "car_since"
         private const val TASK_LISTS = "task_lists"
+        private const val TASKS_SIDE_BY_SIDE = "tasks_side_by_side"
         private const val LAST_TASK_LIST = "last_task_list"
         private const val CALENDAR_DAYS = "calendar_days"
         private const val WEATHER_EVERY_MIN = "weather_every_min"

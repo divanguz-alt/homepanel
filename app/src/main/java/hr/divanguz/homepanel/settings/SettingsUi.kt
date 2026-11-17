@@ -755,8 +755,21 @@ private fun TaskListsSection(store: Settings, onChanged: () -> Unit) {
             }
         }
     }
+    if (picked.isNotEmpty()) {
+        var side by remember { mutableStateOf(store.tasksSideBySide) }
+        val scope = rememberCoroutineScope()
+        Spacer(Modifier.height(12.dp))
+        Grouped(padded = true) {
+            ToggleRow(tr("Calendar and tasks side by side"), tr("Two columns instead of one list with a switch"), side) { on ->
+                side = on
+                store.tasksSideBySide = on
+                scope.launch { withContext(Dispatchers.IO) { runCatching { PanelStore.redraw(app) } } }
+                onChanged()
+            }
+        }
+    }
     T(
-        tr("Open tasks show in the calendar list with a ring; tap the ring to mark one done. With a list on, the widget gets an All · Calendar · Tasks switch."),
+        tr("Open tasks show in the calendar list with a ring; tap the ring to mark one done. With a list on, the widget gets an All · Calendar · Tasks switch, or two columns."),
         13, Ink3, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp),
     )
     Spacer(Modifier.height(16.dp))

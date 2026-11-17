@@ -65,7 +65,7 @@ private const val DAY_COLUMN = 70
 /** Fixed gap between the day column and the colour dot, so the date never touches it. */
 private val DAY_GAP = 8.dp
 
-private fun titleCase(s: String, locale: Locale) = s.replace(".", "").replaceFirstChar { it.titlecase(locale) }
+internal fun titleCase(s: String, locale: Locale) = s.replace(".", "").replaceFirstChar { it.titlecase(locale) }
 
 @Composable
 internal fun WeatherZoneB(state: PanelState, context: Context) {
@@ -202,6 +202,10 @@ private fun ForecastDayB(day: ForecastDayState, main: ColorProvider, second: Col
 
 @Composable
 internal fun CalendarZoneB(snapshot: CalendarSnapshot?, context: Context, modifier: GlanceModifier, first: Boolean = false) {
+    if (sideBySide(context)) {
+        SplitZone(snapshot, context, modifier, top = if (first) 14.dp else 8.dp, bottom = 12.dp)
+        return
+    }
     val calendarApp = launchIntent(context, Packages.CALENDAR)
     val texts = LocalTexts.current
     val tasks = shownTasks(context, LocalTasks.current)
@@ -228,13 +232,14 @@ internal fun CalendarZoneB(snapshot: CalendarSnapshot?, context: Context, modifi
             if (switch) {
                 Spacer(GlanceModifier.defaultWeight())
                 ListSwitch(k)
+                Spacer(GlanceModifier.width(4.dp))
             } else if (view?.todayEmpty == true) {
                 // A hollow dot in the dot column keeps "Nothing today" in line with the events below.
                 Icon(R.drawable.dot_ring, dz(10, k), Palette.ink3P)
                 Spacer(GlanceModifier.width(10.dp))
                 Label(texts.nothingToday, sz(14, k), Palette.ink3P)
             }
-            Spacer(GlanceModifier.defaultWeight())
+            if (!switch) Spacer(GlanceModifier.defaultWeight())
             Box(
                 modifier = GlanceModifier.width(dz(44, k)).height(dz(44, k)).opens(plusTap(context, filter)),
                 contentAlignment = Alignment.Center,

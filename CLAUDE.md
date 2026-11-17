@@ -117,8 +117,10 @@ hairline nine-patch is tinted. The car map bitmap is not themed.
   `CalendarRows.kt`): overdue first with an amber day, undated last under "No date"; a ring instead of
   the colour dot. Tapping the ring completes it (`todo.update_item`, `CompleteTaskAction`); tapping the
   row opens Google Tasks (`com.google.android.apps.tasks`) through `OpenAppActivity`.
-- With a list on, the calendar header gets an "All · Calendar · Tasks" pill (`ListSwitch`, per widget in
-  Glance state, `FilterAction`). The plus follows it: Calendar → new event, Tasks → quick task entry,
+- With a list on, the calendar header gets "All · Calendar · Tasks" as three quiet words, the chosen one
+  underlined (`ListSwitch`, per widget in Glance state, `FilterAction`; the user found a pill too loud).
+  Calendar settings → "Calendar and tasks side by side" (`tasksSideBySide`) swaps the switch for two
+  columns (`SplitZone`), each with its own header and plus; tasks there show a date only when overdue. The plus follows it: Calendar → new event, Tasks → quick task entry,
   All → a chooser (`tasks/AddActivity`, a sheet over the home screen; adds via `todo.add_item`).
 - Glance keeps a background that is merely left out on reapply: always set one (transparent when off).
   Tinted shape drawables fill in; use vectors for rings.
