@@ -46,6 +46,8 @@ data class WeatherState(
     val slots: List<HourState> = emptyList(),
     /** The same span in words: "Up to 8° at 15h, rain 14–19h, 4° at 21h"; null without hours. */
     val outlook: String? = null,
+    /** Today's high and low, "↑7° ↓2°", for design B's top-left corner; null when unknown. */
+    val todayRange: String? = null,
     val stale: Boolean,
 )
 
@@ -161,6 +163,9 @@ fun panelState(
             hours = hourly.filter { it.time > nowMillis - 3_600_000L / 2 }.take(6).map { hourState(it, zone) },
             slots = slots.map { hourState(it, zone, texts.hourLabel) },
             outlook = outlook(slots, hourly, texts, zone),
+            todayRange = w.days.firstOrNull { it.date == today.toString() }?.let { d ->
+                if (d.high == null || d.low == null) null else "↑${d.high.roundToInt()}° ↓${d.low.roundToInt()}°"
+            },
             aqi = w.aqi?.let { "AQI $it" },
             stale = stale(ha.weatherAt, WEATHER_STALE_AFTER_MS),
         )
