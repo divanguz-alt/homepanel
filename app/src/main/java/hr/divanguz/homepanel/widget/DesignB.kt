@@ -59,8 +59,14 @@ private fun aqiColor(aqi: Int, european: Boolean): ColorProvider {
     )
 }
 
-/** Day column in the event list: just wide enough for "Wed 23 Oct" (base 62dp in the spec, plus the month). */
-private const val DAY_COLUMN = 70
+/**
+ * Day column in the event list: the weekday in its own sub-column, then the date, so every date starts
+ * at the same place (the user's pick: no "Mon23" glued together, no gap after "Fri").
+ */
+private const val DAY_COLUMN = 84
+
+/** The weekday's sub-column: room for the widest short weekday ("Wed", "Čet") in a wide system font. */
+private const val WEEKDAY_COLUMN = 36
 
 /** Fixed gap between the day column and the colour dot, so the date never touches it. */
 private val DAY_GAP = 8.dp
@@ -309,12 +315,14 @@ private fun EventRowB(row: EventRow, day: LocalDate?, isToday: Boolean, gap: Dp,
     }
 }
 
-/** "Fri" on the left edge of the day column, "23 Oct" on its right edge. */
+/** "Fri" in the weekday sub-column, then "23 Oct" left-aligned after it. */
 @Composable
 private fun DayLabel(date: LocalDate, locale: Locale, k: Float, weight: FontWeight, color: ColorProvider = Palette.ink2P) {
     Row(modifier = GlanceModifier.width(dz(DAY_COLUMN, k)), verticalAlignment = Alignment.CenterVertically) {
-        Label(titleCase(date.format(DateTimeFormatter.ofPattern("EEE", locale)), locale), sz(15, k), color, weight = weight)
-        Spacer(GlanceModifier.defaultWeight())
+        Label(
+            titleCase(date.format(DateTimeFormatter.ofPattern("EEE", locale)), locale), sz(15, k), color, weight = weight,
+            modifier = GlanceModifier.width(dz(WEEKDAY_COLUMN, k)),
+        )
         Label(date.format(DateTimeFormatter.ofPattern("d MMM", locale)).replace(".", ""), sz(15, k), color, weight = weight)
     }
 }
