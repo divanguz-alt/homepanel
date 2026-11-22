@@ -24,6 +24,19 @@ class MetNoTest {
         assertEquals("rainy", tue.condition) // the symbol nearest 13:00
     }
 
+    @Test fun keepsOnlyHourlySteps() {
+        val root = Json.parseToJsonElement(
+            """{"properties":{"timeseries":[
+            {"time":"2026-10-19T20:00:00Z","data":{"instant":{"details":{"air_temperature":10.0}},"next_1_hours":{"summary":{"symbol_code":"cloudy"}}}},
+            {"time":"2026-10-19T21:00:00Z","data":{"instant":{"details":{"air_temperature":9.0}},"next_1_hours":{"summary":{"symbol_code":"rain"}}}},
+            {"time":"2026-10-22T00:00:00Z","data":{"instant":{"details":{"air_temperature":5.0}},"next_6_hours":{"summary":{"symbol_code":"fog"}}}}
+            ]}}""",
+        ) as JsonObject
+        val hours = MetNo.parse(root, 45.0, 15.0, european = false, zone = ZoneOffset.UTC, aqi = null).hours
+        assertEquals(listOf("cloudy", "rainy"), hours.map { it.condition })
+        assertEquals(9.0, hours[1].temperature!!, 0.001)
+    }
+
     @Test fun mapsSymbols() {
         assertEquals("sunny", MetNo.condition("clearsky_day"))
         assertEquals("clear-night", MetNo.condition("clearsky_night"))

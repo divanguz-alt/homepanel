@@ -4,6 +4,7 @@ import androidx.annotation.DrawableRes
 import hr.divanguz.homepanel.R
 import hr.divanguz.homepanel.claude.ClaudeSnapshot
 import hr.divanguz.homepanel.ha.HaSnapshot
+import hr.divanguz.homepanel.ha.HourForecast
 import hr.divanguz.homepanel.ha.splitAddress
 import java.time.Instant
 import java.time.LocalDate
@@ -39,8 +40,12 @@ data class WeatherState(
     val aqi: String?,
     /** The next three days after today; empty when HA gave no daily forecast. */
     val days: List<ForecastDayState>,
-    /** The next hours (Open-Meteo); empty when unknown or too old. */
+    /** The next six hours for the strip; empty when unknown or too old. */
     val hours: List<HourState> = emptyList(),
+    /** Three upcoming hours [hourStep] apart (the next full hour first), for the compact styles. */
+    val slots: List<HourState> = emptyList(),
+    /** The same span in words: "Up to 8° at 15h, rain 14–19h, 4° at 21h"; null without hours. */
+    val outlook: String? = null,
     val stale: Boolean,
 )
 
@@ -53,7 +58,13 @@ data class ForecastDayState(
     val low: String?,
 )
 
-data class HourState(val label: String, @param:DrawableRes val icon: Int, val temperature: String, val rain: String?)
+data class HourState(
+    val label: String,
+    @param:DrawableRes val icon: Int,
+    val temperature: String,
+    val rain: String?,
+    val conditionKey: String = "",
+)
 
 data class CarState(
     val name: String,
@@ -103,6 +114,8 @@ fun panelState(
     nowMillis: Long = System.currentTimeMillis(),
     zone: ZoneId = ZoneId.systemDefault(),
     locale: Locale = texts.locale,
+    /** Hours between the compact styles' three slots: 1, 2 or 3. */
+    hourStep: Int = 3,
 ): PanelState {
     val today = Instant.ofEpochMilli(nowMillis).atZone(zone).toLocalDate()
     fun stale(at: Long, after: Long = STALE_AFTER_MS) = nowMillis - at > after
@@ -111,6 +124,11 @@ fun panelState(
     val weather = ha?.weather?.let { w ->
         val upcoming = w.days.filter { (runCatching { LocalDate.parse(it.date) }.getOrNull() ?: today) > today }
         val tomorrow = upcoming.firstOrNull { it.date == today.plusDays(1).toString() }
+        // The chosen provider's hours, else Open-Meteo's from the nowcast (fetched every refresh).
+        val hourly = w.hours.filter { it.time > nowMillis - 3_600_000L }.ifEmpty {
+            ha.rain?.takeIf { nowMillis - it.fetchedAt < 3 * 3_600_000L }?.hours.orEmpty()
+        }
+        val slots = hourSlots(hourly, nowMillis, hourStep)
         WeatherState(
             temperature = w.temperature?.let { "${it.roundToInt()}°" } ?: "–",
             conditionNow = texts.now(texts.condition(w.condition)),
@@ -137,16 +155,9 @@ fun panelState(
                 )
             },
             icon = Conditions.icon(w.condition),
-            hours = ha.rain?.takeIf { nowMillis - it.fetchedAt < 3 * 3_600_000L }?.hours.orEmpty()
-                .filter { it.time > nowMillis - 3_600_000L / 2 }.take(6).map { h ->
-                    HourState(
-                        label = Instant.ofEpochMilli(h.time).atZone(zone).hour.toString(),
-                        icon = Conditions.icon(h.condition),
-                        temperature = h.temperature?.let { "${it.roundToInt()}°" } ?: "–",
-                        // Only a chance worth noticing.
-                        rain = h.rainChance?.takeIf { it >= 20 }?.let { "$it%" },
-                    )
-                },
+            hours = hourly.filter { it.time > nowMillis - 3_600_000L / 2 }.take(6).map { hourState(it, zone) },
+            slots = slots.map { hourState(it, zone, texts.hourLabel) },
+            outlook = outlook(slots, hourly, texts, zone),
             aqi = w.aqi?.let { "AQI $it" },
             stale = stale(ha.weatherAt, WEATHER_STALE_AFTER_MS),
         )
@@ -255,4 +266,58 @@ object Conditions {
         "windy", "windy-variant" -> R.drawable.ic_wx_wind
         else -> R.drawable.ic_wx_cloud
     }
+}
+
+private fun hourState(h: HourForecast, zone: ZoneId, label: (Int) -> String = { it.toString() }) = HourState(
+    label = label(Instant.ofEpochMilli(h.time).atZone(zone).hour),
+    icon = Conditions.icon(h.condition),
+    temperature = h.temperature?.let { "${it.roundToInt()}°" } ?: "–",
+    // Only a chance worth noticing.
+    rain = h.rainChance?.takeIf { it >= 20 }?.let { "$it%" },
+    conditionKey = h.condition,
+)
+
+/** The next full hour, then two more [step] hours apart; fewer when the forecast doesn't reach. */
+internal fun hourSlots(hours: List<HourForecast>, nowMillis: Long, step: Int): List<HourForecast> {
+    val first = hours.firstOrNull { it.time > nowMillis } ?: return emptyList()
+    val byTime = hours.associateBy { it.time }
+    return (0 until 3).mapNotNull { byTime[first.time + it * step.coerceIn(1, 3) * 3_600_000L] }
+}
+
+private val WET = setOf("rainy", "pouring", "lightning-rainy", "snowy-rainy", "snowy", "hail")
+
+/** A forecast hour that counts as rain (or snow) for the outlook line. */
+internal fun HourForecast.wet() = condition in WET || (rainChance ?: 0) >= 50
+
+/**
+ * The slots' span in one line: the warmest hour when it is neither the first nor the last, when rain
+ * (or snow) falls, and the temperature at the last slot. "Up to 8° at 15h, rain 14–19h, 4° at 21h".
+ */
+internal fun outlook(slots: List<HourForecast>, hours: List<HourForecast>, texts: Texts, zone: ZoneId): String? {
+    if (slots.size < 2) return null
+    val start = slots.first().time
+    val end = slots.last().time
+    val span = hours.filter { it.time in start..end }
+    fun hourOf(t: Long) = Instant.ofEpochMilli(t).atZone(zone).hour
+    fun deg(v: Double) = "${v.roundToInt()}°"
+    val parts = mutableListOf<String>()
+    val peak = span.filter { it.temperature != null }.maxByOrNull { it.temperature!! }
+    val firstT = slots.first().temperature
+    if (peak != null && peak.time != start && peak.time != end && firstT != null && peak.temperature!! - firstT >= 1.0) {
+        parts += texts.upTo(deg(peak.temperature), hourOf(peak.time))
+    }
+    val wet = span.filter { it.wet() }
+    if (wet.isNotEmpty()) {
+        val snow = wet.count { it.condition == "snowy" } * 2 > wet.size
+        val from = hourOf(wet.first().time)
+        val until = hourOf(wet.last().time + 3_600_000L)
+        parts += when {
+            wet.first().time == start && wet.last().time == end -> texts.wetThrough(snow)
+            wet.first().time == start -> texts.wetUntil(snow, until)
+            wet.last().time == end -> texts.wetFrom(snow, from)
+            else -> texts.wetBetween(snow, from, until)
+        }
+    }
+    slots.last().temperature?.let { parts += texts.tempAt(deg(it), hourOf(end)) }
+    return parts.joinToString(", ").replaceFirstChar { it.titlecase(texts.locale) }.ifEmpty { null }
 }

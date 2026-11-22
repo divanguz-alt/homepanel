@@ -666,14 +666,55 @@ private fun WeatherPage(store: Settings, onChanged: () -> Unit) {
         ToggleRow(tr("Rain coming soon"), tr("\"Rain from 14:20\" / \"Rain until 15:10\" under the conditions, only when it rains"), showRain) {
             showRain = it; store.showRain = it; onChanged()
         }
-        var hourly by remember { mutableStateOf(store.showHourly) }
-        ToggleRow(tr("Next hours"), tr("Six hours under the weather: temperature, and the chance of rain from 20%"), hourly) {
-            hourly = it; store.showHourly = it; onChanged()
-        }
         ToggleRow(tr("Show source on the widget"), tr("Small grey \"Source: …\" in the weather zone"), showSource) {
             showSource = it; store.showSource = it; onChanged()
         }
     }
+    NextHoursSection(store, onChanged)
+}
+
+/** How the next hours show on the widget, and how far apart the three hours are. */
+@Composable
+private fun NextHoursSection(store: Settings, onChanged: () -> Unit) {
+    var style by remember { mutableStateOf(store.hoursStyle) }
+    var step by remember { mutableStateOf(store.hoursStep) }
+    val app = LocalContext.current.applicationContext
+    val scope = rememberCoroutineScope()
+    fun changed() {
+        scope.launch { withContext(Dispatchers.IO) { runCatching { PanelStore.redraw(app) } } }
+        onChanged()
+    }
+    SectionLabel(tr("Next hours"))
+    Grouped(padded = true) {
+        listOf(
+            Settings.HOURS_LIST to (tr("Between the temperature and the days") to tr("Three short rows; three days stay")),
+            Settings.HOURS_COLUMNS to (tr("Hours, then days") to tr("Three small columns, a line, then two days")),
+            Settings.HOURS_SENTENCE to (tr("One sentence") to tr("\"Up to 8° at 15h, rain 14–19h, 4° at 21h\" under the conditions")),
+            Settings.HOURS_STRIP to (tr("Strip of six hours") to tr("Under the weather, only on a tall widget")),
+            Settings.HOURS_OFF to (tr("Off") to tr("Only the days")),
+        ).forEach { (id, text) ->
+            Row(
+                modifier = Modifier.fillMaxWidth().clickable { style = id; store.hoursStyle = id; changed() }.padding(vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    T(text.first, 17, Ink, FontWeight.Medium)
+                    T(text.second, 14, Ink2)
+                }
+                RadioButton(selected = style == id, onClick = null, colors = RadioButtonDefaults.colors(selectedColor = Accent, unselectedColor = Ink3))
+            }
+        }
+        if (style == Settings.HOURS_LIST || style == Settings.HOURS_COLUMNS || style == Settings.HOURS_SENTENCE) {
+            Choice(tr("Step"), listOf(1 to tr("Every hour"), 2 to tr("Every 2 h"), 3 to tr("Every 3 h")), step) {
+                step = it; store.hoursStep = it; changed()
+            }
+        }
+    }
+    T(
+        tr("The three styles above are drawn in design B; design A shows only the strip. Hours come from the weather source you picked; Home Assistant entities without an hourly forecast use Open-Meteo's."),
+        13, Ink3, modifier = Modifier.padding(start = 20.dp, end = 20.dp, top = 8.dp),
+    )
+    Spacer(Modifier.height(16.dp))
 }
 
 @Composable

@@ -1,6 +1,8 @@
 package hr.divanguz.homepanel.weather
 
 import hr.divanguz.homepanel.ha.DayForecast
+import hr.divanguz.homepanel.ha.HOURS_KEPT
+import hr.divanguz.homepanel.ha.HourForecast
 import hr.divanguz.homepanel.ha.WeatherData
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
@@ -31,13 +33,14 @@ object MetNo {
             ?.mapNotNull { it as? JsonObject }.orEmpty()
         if (series.isEmpty()) throw IOException("MET Norway: empty forecast")
 
-        data class Point(val time: Instant, val temp: Double?, val symbol: String?)
+        data class Point(val time: Instant, val temp: Double?, val symbol: String?, val hourly: Boolean)
         val points = series.mapNotNull { e ->
             val time = (e["time"] as? JsonPrimitive)?.contentOrNull?.let { runCatching { Instant.parse(it) }.getOrNull() } ?: return@mapNotNull null
             val data = e["data"] as? JsonObject
             val temp = (((data?.get("instant") as? JsonObject)?.get("details") as? JsonObject)?.get("air_temperature") as? JsonPrimitive)?.doubleOrNull
             fun symbol(block: String) = (((data?.get(block) as? JsonObject)?.get("summary") as? JsonObject)?.get("symbol_code") as? JsonPrimitive)?.contentOrNull
-            Point(time, temp, symbol("next_1_hours") ?: symbol("next_6_hours"))
+            val oneHour = symbol("next_1_hours")
+            Point(time, temp, oneHour ?: symbol("next_6_hours"), oneHour != null)
         }
         val now = points.first()
         val days = points.groupBy { it.time.atZone(zone).toLocalDate() }.map { (date, pts) ->
@@ -55,6 +58,9 @@ object MetNo {
             aqi = aqi,
             aqiEuropean = european,
             days = days,
+            // Hourly steps only for the first ~2.5 days; compact has no chance of rain.
+            hours = points.filter { it.hourly }.take(HOURS_KEPT)
+                .map { HourForecast(it.time.toEpochMilli(), it.temp, null, condition(it.symbol!!)) },
             lat = lat,
             lon = lon,
         )

@@ -1,6 +1,7 @@
 package hr.divanguz.homepanel.weather
 
 import hr.divanguz.homepanel.ha.DayForecast
+import hr.divanguz.homepanel.ha.HOURS_KEPT
 import hr.divanguz.homepanel.ha.HourForecast
 import hr.divanguz.homepanel.ha.RainNowcast
 import hr.divanguz.homepanel.ha.WeatherData
@@ -74,7 +75,7 @@ object OpenMeteo {
         val root = get(
             "https://api.open-meteo.com/v1/forecast?latitude=%.4f&longitude=%.4f".format(Locale.US, lat, lon) +
                 "&minutely_15=precipitation&past_minutely_15=1&forecast_minutely_15=12&timeformat=unixtime" +
-                "&hourly=temperature_2m,precipitation_probability,weather_code,is_day&forecast_hours=8",
+                "&hourly=temperature_2m,precipitation_probability,weather_code,is_day&forecast_hours=26",
         )
         return parseNowcast(root, now)
     }
@@ -82,7 +83,7 @@ object OpenMeteo {
     internal fun parseNowcast(root: JsonObject, now: Long): RainNowcast =
         parseRain(root, now).copy(hours = parseHours(root, now))
 
-    /** The hours that haven't started yet, up to six. */
+    /** The hours that haven't started yet, up to [HOURS_KEPT]. */
     internal fun parseHours(root: JsonObject, now: Long): List<HourForecast> {
         val h = root["hourly"] as? JsonObject ?: return emptyList()
         val times = h.list("time").map { ((it as? JsonPrimitive)?.doubleOrNull ?: 0.0).toLong() * 1000 }
@@ -98,7 +99,7 @@ object OpenMeteo {
                 rainChance = (chances.getOrNull(i) as? JsonPrimitive)?.intOrNull,
                 condition = condition((codes.getOrNull(i) as? JsonPrimitive)?.intOrNull, (days.getOrNull(i) as? JsonPrimitive)?.intOrNull != 0),
             )
-        }.take(6)
+        }.take(HOURS_KEPT)
     }
 
     private fun parseRain(root: JsonObject, now: Long): RainNowcast {

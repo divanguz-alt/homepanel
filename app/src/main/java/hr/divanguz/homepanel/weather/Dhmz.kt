@@ -3,6 +3,8 @@ package hr.divanguz.homepanel.weather
 import android.content.Context
 import android.location.Location
 import hr.divanguz.homepanel.ha.DayForecast
+import hr.divanguz.homepanel.ha.HOURS_KEPT
+import hr.divanguz.homepanel.ha.HourForecast
 import hr.divanguz.homepanel.ha.WeatherData
 import hr.divanguz.homepanel.settings.Settings
 import okhttp3.Request
@@ -11,6 +13,7 @@ import java.io.File
 import java.io.IOException
 import java.io.StringReader
 import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 /**
@@ -29,7 +32,10 @@ object Dhmz {
     private val DATE = DateTimeFormatter.ofPattern("d.M.yyyy.")
 
     internal data class Station(val name: String, val lat: Double, val lon: Double, val temp: Double?, val text: String?, val night: Boolean)
-    internal data class Hour(val date: LocalDate, val hour: Int, val temp: Double?, val symbol: Int?, val rain: Double)
+    internal data class Hour(
+        val date: LocalDate, val hour: Int, val temp: Double?, val symbol: Int?, val rain: Double,
+        val chance: Int? = null, val night: Boolean = false,
+    )
 
     fun fetch(context: Context, lat: Double, lon: Double): WeatherData {
         val stations = stations(WeatherHttp.get(CURRENT_URL))
@@ -40,7 +46,9 @@ object Dhmz {
         val nearest = stations.firstOrNull { it.temp != null }
             ?: throw IOException("DHMZ: no station within ${MAX_STATION_KM.toInt()} km (outside Croatia?)")
 
-        val days = runCatching { forecastDays(context, stations.map { it.name.uppercase() }) }.getOrDefault(emptyList())
+        val place = runCatching { forecastFile(context).reader().use { placeHours(it, stations.map { it.name.uppercase() }) } }
+            .getOrDefault(emptyList())
+        val days = days(place, LocalDate.now())
         val tomorrow = days.firstOrNull { it.date == LocalDate.now().plusDays(1).toString() }
         return WeatherData(
             condition = currentCondition(nearest.text, nearest.night),
@@ -51,6 +59,7 @@ object Dhmz {
             aqiEuropean = Settings.get(context).aqiEuropean,
             warning = if (Settings.get(context).warnings) runCatching { DhmzWarnings.forPlace(context, lat, lon) }.getOrNull() else null,
             days = days,
+            hours = hourForecasts(place, ZoneId.systemDefault()),
             lat = lat,
             lon = lon,
         )
@@ -90,20 +99,19 @@ object Dhmz {
         return out
     }
 
-    /** Daily high/low/condition for the first of [names] present in the forecast feed. */
-    private fun forecastDays(context: Context, names: List<String>): List<DayForecast> {
-        return forecastFile(context).reader().use { parseForecast(it, names, LocalDate.now()) }
-    }
-
     /** The 7-day feed → days for the first of [names] it contains; separate from the file so it can be tested. */
-    internal fun parseForecast(reader: java.io.Reader, names: List<String>, today: LocalDate): List<DayForecast> {
+    internal fun parseForecast(reader: java.io.Reader, names: List<String>, today: LocalDate): List<DayForecast> =
+        days(placeHours(reader, names), today)
+
+    /** Every forecast step (hourly for about three days, then 3- and 6-hourly) for the first of [names] in the feed. */
+    internal fun placeHours(reader: java.io.Reader, names: List<String>): List<Hour> {
         val wanted = names.toSet()
         val found = mutableMapOf<String, MutableList<Hour>>()
         reader.let { reader ->
             val p = XmlParsers.factory().apply { setInput(reader) }
             var place: String? = null
             var date: LocalDate? = null; var hour = 0
-            var temp: Double? = null; var symbol: Int? = null; var rain = 0.0
+            var temp: Double? = null; var symbol: Int? = null; var rain = 0.0; var chance: Int? = null; var night = false
             var tag = ""
             while (p.next() != XmlPullParser.END_DOCUMENT) {
                 when (p.eventType) {
@@ -114,7 +122,7 @@ object Dhmz {
                             "dan" -> if (place != null) {
                                 date = runCatching { LocalDate.parse(p.getAttributeValue(null, "datum"), DATE) }.getOrNull()
                                 hour = p.getAttributeValue(null, "sat")?.toIntOrNull() ?: 0
-                                temp = null; symbol = null; rain = 0.0
+                                temp = null; symbol = null; rain = 0.0; chance = null; night = false
                             }
                         }
                     }
@@ -122,25 +130,29 @@ object Dhmz {
                         val v = p.text.trim()
                         when (tag) {
                             "t_2m" -> temp = v.toDoubleOrNull()
-                            "simbol" -> symbol = v.trimEnd('n').toIntOrNull()
+                            "simbol" -> { symbol = v.trimEnd('n').toIntOrNull(); night = v.endsWith("n") }
+                            "vjerojatnost" -> chance = v.toDoubleOrNull()?.toInt()
                             "oborina" -> rain = v.toDoubleOrNull() ?: 0.0
                         }
                     }
                     XmlPullParser.END_TAG -> {
                         if (p.name == "dan" && place != null && date != null) {
-                            found.getOrPut(place!!) { mutableListOf() } += Hour(date!!, hour, temp, symbol, rain)
+                            found.getOrPut(place!!) { mutableListOf() } += Hour(date!!, hour, temp, symbol, rain, chance, night)
                         }
                         tag = ""
                     }
                 }
             }
         }
-        val hours = names.firstNotNullOfOrNull { found[it] } ?: return emptyList()
-        return hours.filter { it.date >= today }.groupBy { it.date }.toSortedMap().map { (date, hs) ->
+        return names.firstNotNullOfOrNull { found[it] }.orEmpty()
+    }
+
+    /** Daily high/low/condition from the steps. */
+    internal fun days(hours: List<Hour>, today: LocalDate): List<DayForecast> =
+        hours.filter { it.date >= today }.groupBy { it.date }.toSortedMap().map { (date, hs) ->
             val temps = hs.mapNotNull { it.temp }
             DayForecast(date.toString(), dayCondition(hs), temps.maxOrNull(), temps.minOrNull())
         }
-    }
 
     /** The cached forecast file, refreshed with If-None-Match so unchanged data isn't downloaded. */
     private fun forecastFile(context: Context): File {
@@ -160,6 +172,28 @@ object Dhmz {
         }
         if (!file.exists()) throw IOException("DHMZ forecast unavailable")
         return file
+    }
+
+    /** The hourly steps as forecasts (the 3- and 6-hourly tail is left out); [Hour.hour] is local time. */
+    internal fun hourForecasts(hours: List<Hour>, zone: ZoneId, now: Long = System.currentTimeMillis()): List<HourForecast> {
+        // The feed starts in the small hours: skip what is over, and stop where the steps get longer.
+        val ahead = hours.dropWhile { it.time(zone) < now - 3_600_000L }
+        val hourly = ahead.take(1 + ahead.zipWithNext().takeWhile { (a, b) -> b.time(zone) - a.time(zone) == 3_600_000L }.size)
+        return hourly.take(HOURS_KEPT).map { HourForecast(it.time(zone), it.temp, it.chance, hourCondition(it)) }
+    }
+
+    private fun Hour.time(zone: ZoneId): Long = date.atTime(hour % 24, 0).atZone(zone).toInstant().toEpochMilli()
+
+    /** One step's condition: precipitation first, else the cloud-cover codes (1 clear, 2–3 partly, 15 fog). */
+    internal fun hourCondition(h: Hour): String = when {
+        h.rain >= 0.1 && (h.symbol == 30 || h.symbol == 31) -> "lightning-rainy"
+        h.rain >= 0.1 && (h.temp ?: 5.0) <= 1.0 -> "snowy"
+        h.rain >= 4.0 -> "pouring"
+        h.rain >= 0.1 -> "rainy"
+        h.symbol == 1 -> if (h.night) "clear-night" else "sunny"
+        h.symbol == 2 || h.symbol == 3 -> "partlycloudy"
+        h.symbol == 15 -> "fog"
+        else -> "cloudy"
     }
 
     internal fun dayCondition(hours: List<Hour>): String {

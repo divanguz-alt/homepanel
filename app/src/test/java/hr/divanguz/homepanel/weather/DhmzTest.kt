@@ -52,4 +52,18 @@ class DhmzTest {
         assertEquals("fog", Dhmz.currentCondition("magla", night = false))
         assertEquals("lightning-rainy", Dhmz.currentCondition("grmljavina s kišom", night = false))
     }
+
+    @Test fun hourlyStepsStopWhereTheyGetLonger() {
+        val hours = listOf(
+            Dhmz.Hour(java.time.LocalDate.of(2026, 10, 20), 13, 12.0, 1, 0.0, 0),
+            Dhmz.Hour(java.time.LocalDate.of(2026, 10, 20), 14, 11.0, 12, 1.2, 70),
+            Dhmz.Hour(java.time.LocalDate.of(2026, 10, 20), 15, 10.0, 2, 0.0, 10),
+            Dhmz.Hour(java.time.LocalDate.of(2026, 10, 20), 18, 8.0, 2, 0.0, 0),
+        )
+        val zone = java.time.ZoneOffset.UTC
+        val now = java.time.LocalDate.of(2026, 10, 20).atTime(12, 30).toInstant(zone).toEpochMilli()
+        val out = Dhmz.hourForecasts(hours, zone, now)
+        assertEquals(listOf("sunny", "rainy", "partlycloudy"), out.map { it.condition })
+        assertEquals(70, out[1].rainChance)
+    }
 }

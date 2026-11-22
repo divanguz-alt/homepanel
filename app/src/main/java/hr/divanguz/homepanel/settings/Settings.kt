@@ -166,10 +166,20 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         get() = prefs.getBoolean(SHOW_RAIN, true)
         set(v) = prefs.edit().putBoolean(SHOW_RAIN, v).apply()
 
-    /** A strip with the next six hours under the current weather. */
-    var showHourly: Boolean
-        get() = prefs.getBoolean(SHOW_HOURLY, true)
-        set(v) = prefs.edit().putBoolean(SHOW_HOURLY, v).apply()
+    /**
+     * The next hours on the widget: "off", "strip" (six hours under the weather, tall widgets only),
+     * "columns" (three hours beside two days), "list" (three hours between the temperature and three days)
+     * or "sentence" (one line under the conditions). The old on/off switch maps to strip/off.
+     */
+    var hoursStyle: String
+        get() = prefs.getString(HOURS_STYLE, null)
+            ?: if (prefs.getBoolean(SHOW_HOURLY, true)) HOURS_LIST else HOURS_OFF
+        set(v) = prefs.edit().putString(HOURS_STYLE, v).apply()
+
+    /** Hours between the three slots of the compact styles: 1, 2 or 3. */
+    var hoursStep: Int
+        get() = prefs.getInt(HOURS_STEP, 3).coerceIn(1, 3)
+        set(v) = prefs.edit().putInt(HOURS_STEP, v).apply()
 
     /** Search bar twice as tall (100dp), so its corners can match the panel's instead of being a pill. */
     var searchTall: Boolean
@@ -346,6 +356,13 @@ class Settings private constructor(private val prefs: SharedPreferences) {
         private const val LANGUAGE = "widget_language"
         private const val SHOW_RAIN = "show_rain_nowcast"
         private const val SHOW_HOURLY = "show_hourly"
+        private const val HOURS_STYLE = "hours_style"
+        private const val HOURS_STEP = "hours_step"
+        const val HOURS_OFF = "off"
+        const val HOURS_STRIP = "strip"
+        const val HOURS_COLUMNS = "columns"
+        const val HOURS_LIST = "list"
+        const val HOURS_SENTENCE = "sentence"
         private const val HIDDEN_CALENDARS = "hidden_calendars"
         private const val SEARCH_TALL = "search_tall"
         private const val GITHUB_TOKEN = "github_token"

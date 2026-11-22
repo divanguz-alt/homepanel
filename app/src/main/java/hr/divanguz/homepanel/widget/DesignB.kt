@@ -122,9 +122,25 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
             // The forecast's bottom sits on the temperature digits' baseline: big text has empty space
             // below the digits (font descent), about 16% of its size, so the forecast is lifted by that.
             val tempSp = 76f * look.temperatureSp / 84f
+            val temperature = weather?.temperature ?: "–"
+            val style = Settings.get(context).hoursStyle
+            val slots = weather?.slots.orEmpty().takeIf { it.size == 3 }
+            val fit = hoursFit(style, slots, temperature, tempSp, width - 36.dp, days.size, look.forecast, context)
             Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                Label(weather?.temperature ?: "–", tempSp.sp, main, modifier = GlanceModifier.defaultWeight())
-                if (days.isNotEmpty()) {
+                Label(temperature, tempSp.sp, main, modifier = GlanceModifier.defaultWeight())
+                if (fit != null && slots != null) {
+                    // Three hours, then the days that still fit beside them.
+                    val lift = (tempSp * 0.16f).dp
+                    Spacer(GlanceModifier.width(8.dp))
+                    if (style == Settings.HOURS_LIST) HourListB(slots, main, lift)
+                    else HourColumnsB(slots, main, second, lift, fit > 0)
+                    if (fit > 0) {
+                        Spacer(GlanceModifier.width(if (style == Settings.HOURS_LIST) 10.dp else 0.dp))
+                        Row(modifier = GlanceModifier.padding(bottom = lift), verticalAlignment = Alignment.Bottom) {
+                            days.take(fit).forEach { ForecastDayB(it, main, second, locale, GlanceModifier.width(dz(DAY_W, look.forecast))) }
+                        }
+                    }
+                } else if (days.isNotEmpty()) {
                     Spacer(GlanceModifier.width(8.dp))
                     Row(
                         modifier = GlanceModifier.width(min(196.dp * look.forecast, width * 0.5f)).padding(bottom = (tempSp * 0.16f).dp),
@@ -149,8 +165,18 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
                     Label(texts.source(weather!!.source), sz(14, look.conditions), Palette.ink3P)
                 }
             }
+            // The rest of the day in one line; it carries the rain too, so the rain line steps aside.
+            val outlook = weather?.outlook?.takeIf { style == Settings.HOURS_SENTENCE }
+            if (outlook != null) {
+                Spacer(GlanceModifier.height(4.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(R.drawable.ic_wx_clock, dz(16, look.conditions), Palette.ink2P)
+                    Spacer(GlanceModifier.width(6.dp))
+                    Label(outlook, sz(14, look.conditions), Palette.ink2P)
+                }
+            }
             // Rain coming (or stopping) soon, under the conditions; only when it matters.
-            weather?.rain?.takeIf { Settings.get(context).showRain }?.let { rain ->
+            weather?.rain?.takeIf { Settings.get(context).showRain && outlook == null }?.let { rain ->
                 Spacer(GlanceModifier.height(4.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(R.drawable.ic_wx_rain, dz(16, look.conditions), Palette.ink2P)
@@ -166,6 +192,67 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
                 .height(52.dp)
                 .opens(settingsIntent(context)),
         ) {}
+    }
+}
+
+/** A forecast day's column width beside the hours (narrower than the days-only layout). */
+private const val DAY_W = 50
+
+/** One hour column in the "columns" style. */
+private const val HOUR_W = 42
+
+/** The hour list's width in the "list" style: "21h", icon, "-12°". */
+private const val LIST_W = 76
+
+/**
+ * How many forecast days fit beside the hours, or null when the hours themselves don't fit (or are off).
+ * Widths are estimated from the text: digits ≈ 0.56em, the degree sign ≈ 0.38em, scaled by the font size
+ * setting, so a "-12°" or a large system font drops a day rather than clipping.
+ */
+private fun hoursFit(style: String, slots: List<HourState>?, temperature: String, tempSp: Float, inner: Dp, days: Int, k: Float, context: Context): Int? {
+    if (slots == null || (style != Settings.HOURS_LIST && style != Settings.HOURS_COLUMNS)) return null
+    val scale = context.resources.configuration.fontScale
+    val tempW = temperature.sumOf { if (it == '°') 0.38 else 0.56 }.toFloat() * tempSp * scale
+    val hoursW = if (style == Settings.HOURS_LIST) LIST_W * k * scale + 18 else 3 * HOUR_W * k * scale + 17
+    val maxDays = if (style == Settings.HOURS_LIST) 3 else 2
+    return (minOf(days, maxDays) downTo 0).firstOrNull { n -> tempW + 8 + hoursW + n * DAY_W * k * scale <= inner.value }
+}
+
+/** "List": three short rows (hour, icon, temperature) between the temperature and the days. */
+@Composable
+private fun HourListB(slots: List<HourState>, main: ColorProvider, lift: Dp) {
+    val k = LocalLook.current.forecast
+    Column(modifier = GlanceModifier.width(dz(LIST_W, k)).padding(bottom = lift)) {
+        slots.forEach { h ->
+            Row(modifier = GlanceModifier.height(dz(22, k)), verticalAlignment = Alignment.CenterVertically) {
+                Label(h.label, sz(13, k), Palette.ink3P, modifier = GlanceModifier.width(dz(30, k)))
+                Icon(h.icon, dz(16, k), if (h.conditionKey == "sunny") SunTint else Palette.ink2P)
+                Spacer(GlanceModifier.width(8.dp))
+                Label(h.temperature, sz(15, k), main)
+            }
+        }
+    }
+}
+
+/** "Columns": three small hour columns like the days, then a hairline before the days. */
+@Composable
+private fun HourColumnsB(slots: List<HourState>, main: ColorProvider, second: ColorProvider, lift: Dp, line: Boolean) {
+    val k = LocalLook.current.forecast
+    Row(modifier = GlanceModifier.padding(bottom = lift), verticalAlignment = Alignment.Bottom) {
+        slots.forEach { h ->
+            Column(modifier = GlanceModifier.width(dz(HOUR_W, k)), horizontalAlignment = Alignment.CenterHorizontally) {
+                Label(h.label, sz(13, k), Palette.ink3P)
+                Spacer(GlanceModifier.height(9.dp))
+                Icon(h.icon, dz(24, k), if (h.conditionKey == "sunny") SunTint else second)
+                Spacer(GlanceModifier.height(9.dp))
+                Label(h.temperature, sz(16, k), main)
+            }
+        }
+        if (line) {
+            Spacer(GlanceModifier.width(8.dp))
+            Box(modifier = GlanceModifier.width(1.dp).height(dz(64, k)).background(Palette.hairP)) {}
+            Spacer(GlanceModifier.width(8.dp))
+        }
     }
 }
 

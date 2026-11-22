@@ -52,7 +52,7 @@ abstract class ZoneWidget : GlanceAppWidget() {
                         panelState(
                             PanelStore.ha(prefs), settings.ha().isConfigured,
                             PanelStore.claude(prefs), PanelStore.claudeBusy(prefs),
-                            carName = settings.carName, texts = texts,
+                            carName = settings.carName, texts = texts, hourStep = settings.hoursStep,
                         ),
                     )
                 }
@@ -68,7 +68,7 @@ abstract class ZoneWidget : GlanceAppWidget() {
             Palette.use(context, look.theme)
             CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts) {
                 Card {
-                    Content(panelState(Preview.ha(context), true, Preview.claude(context), false, settings.carName, texts))
+                    Content(panelState(Preview.ha(context), true, Preview.claude(context), false, settings.carName, texts, hourStep = settings.hoursStep))
                 }
             }
         }

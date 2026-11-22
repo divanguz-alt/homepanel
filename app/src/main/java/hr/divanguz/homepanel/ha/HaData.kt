@@ -32,6 +32,8 @@ data class WeatherData(
     val aqiEuropean: Boolean = false,
     /** Strongest official warning for this place today/tomorrow, if the provider publishes them. */
     val warning: WeatherWarning? = null,
+    /** The next hours from this provider (empty when it has none; the widget then uses Open-Meteo's). */
+    val hours: List<HourForecast> = emptyList(),
 )
 
 /**
@@ -44,9 +46,12 @@ data class RainNowcast(
     val startsAt: Long? = null,
     val endsAt: Long? = null,
     val fetchedAt: Long = 0,
-    /** The next hours from Open-Meteo's hourly forecast, fetched with the nowcast. */
+    /** The next hours from Open-Meteo's hourly forecast, fetched with the nowcast; the fallback. */
     val hours: List<HourForecast> = emptyList(),
 )
+
+/** How many hours ahead each provider keeps: enough for three 3-hour steps and the 6-hour strip, with room to age. */
+const val HOURS_KEPT = 24
 
 @Serializable
 data class HourForecast(
@@ -135,6 +140,9 @@ object HaFetch {
         val days = runCatching { dailyDays(client.dailyForecast(s.weatherEntity), s.weatherEntity, zone) }
             .getOrDefault(emptyList())
         val tomorrow = LocalDate.now(zone).plusDays(1).toString().let { t -> days.firstOrNull { it.date == t } }
+        // Hourly only where the integration offers it; otherwise the widget falls back to Open-Meteo.
+        val hours = runCatching { hourly(client.forecast(s.weatherEntity, "hourly"), s.weatherEntity) }
+            .getOrDefault(emptyList())
         val aqi = s.aqiEntity.takeIf { it.isNotBlank() }
             ?.let { id -> runCatching { client.state(id)?.let(::formatAqi) }.getOrNull() }
         return WeatherData(
@@ -144,7 +152,20 @@ object HaFetch {
             tomorrowCondition = tomorrow?.condition,
             tomorrowHigh = tomorrow?.high,
             days = days,
+            hours = hours,
         )
+    }
+
+    /** `weather.get_forecasts` with type hourly → hours; empty when the entity has no hourly forecast. */
+    internal fun hourly(response: JsonElement?, entityId: String): List<HourForecast> {
+        val root = response as? JsonObject ?: return emptyList()
+        val byEntity = (root["service_response"] as? JsonObject ?: root)[entityId] as? JsonObject ?: return emptyList()
+        val items = (byEntity["forecast"] as? JsonArray)?.mapNotNull { it as? JsonObject } ?: return emptyList()
+        return items.mapNotNull { o ->
+            val time = o["datetime"].str()?.let { runCatching { OffsetDateTime.parse(it).toInstant().toEpochMilli() }.getOrNull() }
+                ?: return@mapNotNull null
+            HourForecast(time, o["temperature"].num(), o["precipitation_probability"].num()?.roundToInt(), o["condition"].str() ?: "cloudy")
+        }.sortedBy { it.time }.take(HOURS_KEPT)
     }
 
     private fun formatAqi(st: JsonObject): String? {

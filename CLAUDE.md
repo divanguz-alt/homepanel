@@ -95,9 +95,16 @@ hairline nine-patch is tinted. The car map bitmap is not themed.
 
 ## Hourly strip, calendars, light themes
 
-- "Next hours" (Weather settings, on by default): six hours from Open-Meteo's hourly forecast, fetched in
-  the same request as the rain nowcast (`RainNowcast.hours`). Shown only when the panel is ≥ 470dp tall;
-  it raises the calendar's cut-off by 90dp so the grid never gets squeezed.
+- Weather settings → Next hours (`Settings.hoursStyle`, `hoursStep` 1/2/3 h): "list" (default; three short
+  rows between the temperature and three days), "columns" (three small hour columns, a hairline, two days),
+  "sentence" ("Up to 8° at 15h, rain 14–19h, 4° at 21h" under the conditions; it replaces the rain line),
+  "strip" (the old six-hour strip, only when the panel is ≥ 470dp tall; it raises the calendar's cut-off by
+  90dp) or off. List/columns/sentence are drawn in design B only; `hoursFit` estimates the text widths and
+  drops days (then the hours) rather than clipping. Hours come from the chosen provider (`WeatherData.hours`:
+  MET Norway's hourly steps, DHMZ's hourly feed steps with derived conditions and its chance of rain, HA
+  `get_forecasts` type hourly), else from Open-Meteo's hourly forecast fetched with the rain nowcast
+  (`RainNowcast.hours`). Slots: the next full hour, then two more `hoursStep` apart (`hourSlots`, `outlook`
+  in PanelState.kt).
 - Calendar settings list the phone's calendars with switches (`Settings.hiddenCalendars`, filtered by
   `Instances.CALENDAR_ID`).
 - Themes "Light" and "Day and night" (`Themes.AUTO`): Auto colours are Glance day/night ColorProviders

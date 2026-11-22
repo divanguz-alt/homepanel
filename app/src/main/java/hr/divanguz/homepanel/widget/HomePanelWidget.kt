@@ -92,7 +92,7 @@ class HomePanelWidget : GlanceAppWidget() {
             val look = Settings.get(context).look()
             Palette.use(context, look.theme)
             CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts, LocalStaticList provides true, LocalTasks provides ha.tasks) {
-                Panel(panelState(ha, haConfigured = true, claude = claude, claudeBusy = false, carName = Settings.get(context).carName, texts = texts), calendar)
+                Panel(panelState(ha, haConfigured = true, claude = claude, claudeBusy = false, carName = Settings.get(context).carName, texts = texts, hourStep = Settings.get(context).hoursStep), calendar)
             }
         }
     }
@@ -123,6 +123,7 @@ class HomePanelWidget : GlanceAppWidget() {
                     PanelStore.claude(prefs), PanelStore.claudeBusy(prefs),
                     carName = settings.carName,
                     texts = texts,
+                    hourStep = settings.hoursStep,
                 )
                 Panel(state, PanelStore.calendar(prefs))
             }
@@ -164,7 +165,7 @@ suspend fun previewViews(context: Context, look: Look, size: androidx.compose.ui
     return androidx.glance.appwidget.GlanceRemoteViews().compose(context, size) {
         Palette.use(context, look.theme)
         CompositionLocalProvider(LocalLook provides look, LocalTexts provides texts, LocalStaticList provides true, LocalTasks provides ha.tasks) {
-            Panel(panelState(ha, haConfigured = true, claude = claude, claudeBusy = false, carName = settings.carName, texts = texts), calendar)
+            Panel(panelState(ha, haConfigured = true, claude = claude, claudeBusy = false, carName = settings.carName, texts = texts, hourStep = settings.hoursStep), calendar)
         }
     }.remoteViews
 }
@@ -183,7 +184,7 @@ private fun Panel(state: PanelState, calendar: CalendarSnapshot?) {
                 val gridHasContent = look.shows(Zones.CAR) || look.shows(Zones.CLAUDE)
                 // A calendar that is switched on but doesn't fit leaves a stretching gap in its place, so
                 // the zones below it stay at the bottom; one switched off moves the gap to the end.
-                val hourly = height >= HourlyMin && Settings.get(context).showHourly && state.weather?.hours?.isNotEmpty() == true
+                val hourly = height >= HourlyMin && Settings.get(context).hoursStyle == Settings.HOURS_STRIP && state.weather?.hours?.isNotEmpty() == true
                 val calendarMin = if (hourly) CompactCalendarMin + HourlyHeight else CompactCalendarMin
                 val gap = "gap"
                 val slots = look.order.filter(look::shows).mapNotNull { z ->
@@ -290,7 +291,7 @@ private fun WeatherZone(state: PanelState, context: Context) {
 @Composable
 internal fun HourlyStrip(weather: WeatherState?, main: ColorProvider, second: ColorProvider) {
     val hours = weather?.hours.orEmpty()
-    if (hours.isEmpty() || !LocalHourlyFits.current || !Settings.get(LocalContext.current).showHourly) return
+    if (hours.isEmpty() || !LocalHourlyFits.current || Settings.get(LocalContext.current).hoursStyle != Settings.HOURS_STRIP) return
     val k = LocalLook.current.conditions
     Column(modifier = GlanceModifier.fillMaxWidth().padding(top = 12.dp)) {
         Row(modifier = GlanceModifier.fillMaxWidth()) {

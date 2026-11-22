@@ -92,10 +92,13 @@ class HaClient(private val settings: HaSettings) {
         call("/api/states")?.let { json.parseToJsonElement(it) as? kotlinx.serialization.json.JsonArray }
             ?.mapNotNull { it as? JsonObject }.orEmpty()
 
-    fun dailyForecast(entityId: String): JsonElement? {
+    fun dailyForecast(entityId: String): JsonElement? = forecast(entityId, "daily")
+
+    /** `weather.get_forecasts` for one entity: type "daily", "hourly" or "twice_daily". */
+    fun forecast(entityId: String, type: String): JsonElement? {
         val body = buildJsonObject {
             put("entity_id", entityId)
-            put("type", "daily")
+            put("type", type)
         }.toString()
         return call("/api/services/weather/get_forecasts?return_response", body)?.let(json::parseToJsonElement)
     }
