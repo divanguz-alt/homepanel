@@ -168,7 +168,7 @@ the device_tracker picked in Weather → Your location (only trackers with coord
 A second look, chosen in Settings → Appearance → Design: spec in `docs/design-b.md` ("A2 · Siva
 karta"). Code: `widget/DesignB.kt` (weather and calendar zones); the bottom grid is shared and only
 uses the grey map variant (`car_map_grey.png`, rendered with the colour one) and `#A2A4AB` text on
-the map. In B there is no header row: the city (· date · source, shortened to fit) sits at the right of the conditions line and is the invisible settings shortcut; the warning chip follows the AQI; refresh lives in settings and the Claude bars.
+the map. In B there is no header row: the condition (icon over one or two words) sits beside the temperature when that costs no day or hour, else on the line below; that line has the rain line or sentence on the left and "● AQI · city · date · source" on the right (date, then source dropped, then the city shortened to fit), which is the invisible settings shortcut; the warning chip goes on the left; refresh lives in settings and the Claude bars.
 
 ## Search widget (secondary)
 
