@@ -32,6 +32,13 @@ class HourSlotsTest {
         assertEquals(2, hourSlots(hours, at(20) + 1, 2).size) // 21h and 23h; the forecast ends before 1h
     }
 
+    @Test fun rainLineFollowsTheHours() {
+        assertEquals("Rain from 16:00", hourlyRainText(hours, at(12) + 1, zone, Texts.EN))
+        assertEquals("Rain until 19:00", hourlyRainText(hours, at(16) + 30 * 60_000L, zone, Texts.EN))
+        assertNull(hourlyRainText(hours, at(19) + 1, zone, Texts.EN))
+        assertNull(hourlyRainText(hours, at(8), zone, Texts.EN)) // rain at 16h is past the six-hour look-ahead
+    }
+
     @Test fun outlookNamesPeakRainAndEnd() {
         val slots = hourSlots(hours, at(12) + 1, 3)
         assertEquals("Up to 9° at 15h, rain 16–19h, 4° at 19h", outlook(slots, hours, Texts.EN, zone))

@@ -136,7 +136,9 @@ hairline nine-patch is tinted. The car map bitmap is not themed.
 
 Widget text lives in `widget/Texts.kt` (English / Croatian, Settings → Appearance → Widget language;
 the locale also formats dates). "Rain from 14:20 / until 15:10" under the conditions comes from
-Open-Meteo's 15-minute forecast every refresh (toggle in Weather settings). The weather location is
+Open-Meteo's 15-minute forecast every refresh (toggle in Weather settings); when the chosen
+provider has its own hours the line comes from those instead (`hourlyRainText`, next 6 h), so it never
+contradicts the hour icons. DHMZ day icons count only daytime rain (7–20h), unless the night is very wet. The weather location is
 the device_tracker picked in Weather → Your location (only trackers with coordinates are listed).
 
 ## Build, sign, test

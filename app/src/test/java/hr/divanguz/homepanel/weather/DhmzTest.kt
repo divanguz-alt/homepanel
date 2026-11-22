@@ -66,4 +66,13 @@ class DhmzTest {
         assertEquals(listOf("sunny", "rainy", "partlycloudy"), out.map { it.condition })
         assertEquals(70, out[1].rainChance)
     }
+
+    @Test fun nightRainDoesNotMakeASunnyDayRainy() {
+        val d = java.time.LocalDate.of(2026, 10, 21)
+        val night = (0..3).map { Dhmz.Hour(d, it, 5.0, 26, 1.5, 90) }
+        val day = (4..23).map { Dhmz.Hour(d, it, 5.0, 1, 0.0, 10) }
+        assertEquals("sunny", Dhmz.dayCondition(night + day))
+        val wetDay = (4..23).map { Dhmz.Hour(d, it, 5.0, 26, if (it in 15..17) 0.6 else 0.0, 80) }
+        assertEquals("rainy", Dhmz.dayCondition(night + wetDay))
+    }
 }

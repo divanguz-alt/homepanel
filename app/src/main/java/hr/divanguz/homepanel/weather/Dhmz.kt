@@ -196,10 +196,15 @@ object Dhmz {
         else -> "cloudy"
     }
 
+    /**
+     * A day's icon from its daytime steps (7–20h), so rain that ends in the small hours doesn't make a sunny
+     * day look rainy; night rain alone still counts when it is heavy.
+     */
     internal fun dayCondition(hours: List<Hour>): String {
-        val rain = hours.sumOf { it.rain }
+        val daytime = hours.filter { it.hour in 7..20 }.ifEmpty { hours }
+        val rain = daytime.sumOf { it.rain }.takeIf { it >= 1.0 } ?: if (hours.sumOf { it.rain } >= 10.0) 10.0 else 0.0
         val warmest = hours.mapNotNull { it.temp }.maxOrNull() ?: 10.0
-        val thunder = hours.any { it.symbol == 30 || it.symbol == 31 }
+        val thunder = daytime.any { it.symbol == 30 || it.symbol == 31 }
         if (rain >= 1.0) return when {
             thunder -> "lightning-rainy"
             warmest <= 1.0 -> "snowy"

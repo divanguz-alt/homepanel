@@ -138,7 +138,10 @@ fun panelState(
             aqiEuropean = w.aqiEuropean,
             warning = w.warning,
             source = w.source,
-            rain = ha.rain?.let { rainText(it, nowMillis, zone, texts) },
+            // The rain line follows the hours on screen: the chosen provider's own when it has them
+            // (otherwise "Rain from 12:45" from Open-Meteo could sit above a dry 13h from DHMZ).
+            rain = if (w.hours.isNotEmpty()) hourlyRainText(w.hours, nowMillis, zone, texts)
+                else ha.rain?.let { rainText(it, nowMillis, zone, texts) },
             // Prefer the stored day list so the line stays right after midnight; older caches lack it.
             tomorrow = (tomorrow?.condition ?: w.tomorrowCondition.takeIf { w.days.isEmpty() })?.let { c ->
                 val high = (tomorrow?.high ?: w.tomorrowHigh)?.let { ", ${it.roundToInt()}°" }.orEmpty()
@@ -217,6 +220,23 @@ private fun rainText(r: hr.divanguz.homepanel.ha.RainNowcast, now: Long, zone: Z
         else -> null
     }
 }
+
+/** The rain line from hourly steps, within the next [RAIN_AHEAD_H] hours; an hour counts by its condition (as its icon). */
+internal fun hourlyRainText(hours: List<HourForecast>, now: Long, zone: ZoneId, texts: Texts): String? {
+    val hour = 3_600_000L
+    val ahead = hours.sortedBy { it.time }.filter { it.time + hour > now && it.time < now + RAIN_AHEAD_H * hour }
+    val first = ahead.indexOfFirst { it.condition in WET }
+    if (first < 0) return null
+    val fmt = DateTimeFormatter.ofPattern("HH:mm", texts.locale)
+    fun at(t: Long) = Instant.ofEpochMilli(t).atZone(zone).format(fmt)
+    val start = ahead[first]
+    if (start.time > now) return texts.rainFrom(at(start.time))
+    val rest = hours.sortedBy { it.time }.filter { it.time > start.time }
+    val dry = rest.firstOrNull { it.condition !in WET } ?: return texts.rainHours
+    return texts.rainUntil(at(dry.time))
+}
+
+private const val RAIN_AHEAD_H = 6
 
 /** "resets in 3h 12m" / "resets in 2d 9h"; empty when the reset time is unknown. */
 private fun resetsIn(at: Long, now: Long, texts: Texts): String {
