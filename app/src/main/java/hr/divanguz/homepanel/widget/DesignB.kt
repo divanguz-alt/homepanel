@@ -93,32 +93,24 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
 
     val showSource = weather != null && Settings.get(context).showSource
 
-    // An invisible, finger-sized area over the top-left corner (city line) opens HomePanel's settings;
-    // it sits on top of the zone, so the rest still opens the weather app.
+    // City (with the optional date and source) sits at the right of the conditions; it is the
+    // invisible settings shortcut. No header row above the temperature, so everything moves up.
+    val showDate = Settings.get(context).showDate
+    val place = state.place?.takeIf { it.isNotBlank() }
+    val date = if (showDate) titleCase(LocalDate.now().format(DateTimeFormatter.ofPattern("EEE d MMM", locale)), locale) else null
+    val source = if (showSource) weather!!.source else null
+    // About 40% of the width at ~7.5dp a character; the date goes first, then the source, so the
+    // conditions on the left aren't squeezed.
+    val room = (width.value * 0.4f / (7.5f * look.conditions)).toInt()
+    val corner = listOf(listOfNotNull(place, date, source), listOfNotNull(place, source), listOfNotNull(place ?: source))
+        .map { it.joinToString(" · ") }.firstOrNull { it.length <= room } ?: (place ?: source).orEmpty()
     Box(modifier = GlanceModifier.fillMaxWidth()) {
         Column(
             modifier = GlanceModifier
                 .fillMaxWidth()
-                .padding(start = 18.dp, top = 18.dp, end = 18.dp, bottom = 16.dp)
+                .padding(start = 18.dp, top = 14.dp, end = 18.dp, bottom = 14.dp)
                 .opens(tap),
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Label(state.place ?: " ", sz(15, look.header), Palette.ink2P, weight = FontWeight.Medium)
-                if (Settings.get(context).showDate) {
-                    Spacer(GlanceModifier.width(8.dp))
-                    Dot(dz(4, look.header), Palette.ink3P)
-                    Spacer(GlanceModifier.width(8.dp))
-                    Label(
-                        titleCase(LocalDate.now().format(DateTimeFormatter.ofPattern("EEE d MMM", locale)), locale),
-                        sz(15, look.header), Palette.ink2P, weight = FontWeight.Medium,
-                    )
-                }
-                weather?.warning?.let {
-                    Spacer(GlanceModifier.width(10.dp))
-                    WarningChip(it, sz(14, look.header))
-                }
-            }
-            Spacer(GlanceModifier.height(4.dp))
             // The forecast's bottom sits on the temperature digits' baseline: big text has empty space
             // below the digits (font descent), about 16% of its size, so the forecast is lifted by that.
             val tempSp = 76f * look.temperatureSp / 84f
@@ -151,47 +143,51 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
                 }
             }
             Spacer(GlanceModifier.height(6.dp))
-            // Conditions on the left; the optional source under the forecast, same size, same slider.
-            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = GlanceModifier.defaultWeight()) {
-                    if (weather == null) {
-                        Label(if (state.haConfigured) texts.waitingWeather else texts.tapToSetUp, sz(14, look.conditions), second)
-                    } else {
-                        ConditionRowB(weather, second, look.conditions)
+            // Conditions, the sentence and the rain line on the left; the city corner on the right.
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
+                Column(modifier = GlanceModifier.defaultWeight()) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (weather == null) {
+                            Label(if (state.haConfigured) texts.waitingWeather else texts.tapToSetUp, sz(14, look.conditions), second)
+                        } else {
+                            ConditionRowB(weather, second, look.conditions)
+                        }
+                        weather?.warning?.let {
+                            Spacer(GlanceModifier.width(8.dp))
+                            WarningChip(it, sz(13, look.conditions))
+                        }
+                    }
+                    // The rest of the day in one line; it carries the rain too, so the rain line steps aside.
+                    val outlook = weather?.outlook?.takeIf { style == Settings.HOURS_SENTENCE }
+                    if (outlook != null) {
+                        Spacer(GlanceModifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(R.drawable.ic_wx_clock, dz(16, look.conditions), Palette.ink2P)
+                            Spacer(GlanceModifier.width(6.dp))
+                            Label(outlook, sz(14, look.conditions), Palette.ink2P)
+                        }
+                    }
+                    // Rain coming (or stopping) soon, under the conditions; only when it matters.
+                    weather?.rain?.takeIf { Settings.get(context).showRain && outlook == null }?.let { rain ->
+                        Spacer(GlanceModifier.height(4.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(R.drawable.ic_wx_rain, dz(16, look.conditions), Palette.ink2P)
+                            Spacer(GlanceModifier.width(6.dp))
+                            Label(rain, sz(14, look.conditions), Palette.ink2P)
+                        }
                     }
                 }
-                if (showSource) {
-                    Spacer(GlanceModifier.width(8.dp))
-                    Label(texts.source(weather!!.source), sz(14, look.conditions), Palette.ink3P)
-                }
-            }
-            // The rest of the day in one line; it carries the rain too, so the rain line steps aside.
-            val outlook = weather?.outlook?.takeIf { style == Settings.HOURS_SENTENCE }
-            if (outlook != null) {
-                Spacer(GlanceModifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(R.drawable.ic_wx_clock, dz(16, look.conditions), Palette.ink2P)
-                    Spacer(GlanceModifier.width(6.dp))
-                    Label(outlook, sz(14, look.conditions), Palette.ink2P)
-                }
-            }
-            // Rain coming (or stopping) soon, under the conditions; only when it matters.
-            weather?.rain?.takeIf { Settings.get(context).showRain && outlook == null }?.let { rain ->
-                Spacer(GlanceModifier.height(4.dp))
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(R.drawable.ic_wx_rain, dz(16, look.conditions), Palette.ink2P)
-                    Spacer(GlanceModifier.width(6.dp))
-                    Label(rain, sz(14, look.conditions), Palette.ink2P)
+                // Finger-sized even when empty: it is the way into settings from the widget.
+                Box(
+                    modifier = GlanceModifier.height(dz(28, look.conditions)).padding(start = 8.dp).opens(settingsIntent(context)),
+                    contentAlignment = Alignment.TopEnd,
+                ) {
+                    if (corner.isNotEmpty()) Label(corner, sz(14, look.conditions), Palette.ink3P)
+                    else Spacer(GlanceModifier.width(48.dp))
                 }
             }
             HourlyStrip(weather, main, second)
         }
-        Box(
-            modifier = GlanceModifier
-                .width(LocalSize.current.width * 0.55f)
-                .height(52.dp)
-                .opens(settingsIntent(context)),
-        ) {}
     }
 }
 
