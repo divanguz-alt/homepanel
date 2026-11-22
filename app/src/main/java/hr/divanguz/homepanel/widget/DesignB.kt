@@ -171,57 +171,39 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
                 }
             }
             Spacer(GlanceModifier.height(6.dp))
-            // Conditions, the sentence and the rain line on the left; the city corner on the right.
-            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Top) {
-                Column(modifier = GlanceModifier.defaultWeight()) {
-                    val warning = weather?.warning
-                    if (weather == null || conditionLines == null || warning != null) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            if (weather == null) {
-                                Label(if (state.haConfigured) texts.waitingWeather else texts.tapToSetUp, sz(14, look.conditions), second)
-                            } else if (conditionLines == null) {
-                                ConditionRowB(weather, second, look.conditions)
-                                if (warning != null) Spacer(GlanceModifier.width(8.dp))
-                            }
-                            warning?.let { WarningChip(it, sz(13, look.conditions)) }
-                        }
-                    }
-                    var above = weather == null || conditionLines == null || warning != null
-                    // The rest of the day in one line; it carries the rain too, so the rain line steps aside.
-                    val outlook = weather?.outlook?.takeIf { style == Settings.HOURS_SENTENCE }
-                    if (outlook != null) {
-                        if (above) Spacer(GlanceModifier.height(4.dp))
-                        above = true
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(R.drawable.ic_wx_clock, dz(16, look.conditions), Palette.ink2P)
-                            Spacer(GlanceModifier.width(6.dp))
-                            Label(outlook, sz(14, look.conditions), Palette.ink2P)
-                        }
-                    }
-                    // Rain coming (or stopping) soon, under the conditions; only when it matters.
-                    weather?.rain?.takeIf { Settings.get(context).showRain && outlook == null }?.let { rain ->
-                        if (above) Spacer(GlanceModifier.height(4.dp))
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(R.drawable.ic_wx_rain, dz(16, look.conditions), Palette.ink2P)
-                            Spacer(GlanceModifier.width(6.dp))
-                            Label(rain, sz(14, look.conditions), Palette.ink2P)
-                        }
+            // Lines under the temperature: the conditions (when not beside it) or the warning, then the
+            // sentence or the rain line. The first one shares its row with the AQI and city corner; the
+            // others use the full width.
+            val warning = weather?.warning
+            val outlook = weather?.outlook?.takeIf { style == Settings.HOURS_SENTENCE }
+            val rain = weather?.rain?.takeIf { Settings.get(context).showRain && outlook == null }
+            val lines = mutableListOf<Pair<String, @Composable () -> Unit>>()
+            if (weather == null) {
+                val t = if (state.haConfigured) texts.waitingWeather else texts.tapToSetUp
+                lines += t to { Label(t, sz(14, look.conditions), second) }
+            } else if (conditionLines == null || warning != null) {
+                // The warning chip is about ten characters wide.
+                val t = (if (conditionLines == null) weather.condition + "   " else "") + " ".repeat(if (warning != null) 10 else 0)
+                lines += t to {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (conditionLines == null) ConditionRowB(weather, second, look.conditions)
+                        if (conditionLines == null && warning != null) Spacer(GlanceModifier.width(8.dp))
+                        warning?.let { WarningChip(it, sz(13, look.conditions)) }
                     }
                 }
-                // Finger-sized even when empty: it is the way into settings from the widget.
+            }
+            if (outlook != null) lines += "   $outlook" to { IconLine(R.drawable.ic_wx_clock, outlook, look.conditions) }
+            if (rain != null) lines += "   $rain" to { IconLine(R.drawable.ic_wx_rain, rain, look.conditions) }
+
+            val aqi = weather?.aqiValue
+            val corner = corner((lines.firstOrNull()?.first?.length ?: 0) + 2)
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = GlanceModifier.defaultWeight()) { lines.firstOrNull()?.second?.invoke() }
+                // The way into settings from the widget: as tall as the row, at least a finger wide.
                 Box(
-                    modifier = GlanceModifier.height(dz(28, look.conditions)).padding(start = 8.dp).opens(settingsIntent(context)),
-                    contentAlignment = Alignment.TopEnd,
+                    modifier = GlanceModifier.padding(start = 8.dp).opens(settingsIntent(context)),
+                    contentAlignment = Alignment.CenterEnd,
                 ) {
-                    val aqi = weather?.aqiValue
-                    val leftText = when {
-                        weather == null -> if (state.haConfigured) texts.waitingWeather else texts.tapToSetUp
-                        conditionLines == null || weather.warning != null -> weather.condition + " ".repeat(if (weather.warning != null) 10 else 0) // the chip is about ten characters wide
-                        style == Settings.HOURS_SENTENCE && weather.outlook != null -> "   " + weather.outlook
-                        Settings.get(context).showRain && weather.rain != null -> "   " + weather.rain
-                        else -> ""
-                    }
-                    val corner = corner(leftText.length + 2)
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (aqi != null) {
                             Dot(dz(8, look.conditions), aqiColor(aqi, weather.aqiEuropean))
@@ -229,9 +211,13 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
                             Label("AQI $aqi" + if (corner.isNotEmpty()) " " else "", sz(14, look.conditions), second)
                         }
                         if (corner.isNotEmpty()) Label((if (aqi != null) "· " else "") + corner, sz(14, look.conditions), Palette.ink3P)
-                        if (aqi == null && corner.isEmpty()) Spacer(GlanceModifier.width(48.dp))
+                        if (aqi == null && corner.isEmpty()) Spacer(GlanceModifier.width(48.dp).height(20.dp))
                     }
                 }
+            }
+            lines.drop(1).forEach { (_, line) ->
+                Spacer(GlanceModifier.height(4.dp))
+                line()
             }
             HourlyStrip(weather, main, second)
         }
@@ -300,6 +286,16 @@ private fun HourColumnsB(slots: List<HourState>, main: ColorProvider, second: Co
 }
 
 /** Icon · condition · dot · AQI band dot · "AQI n". Nine children: within Glance's ten per row. */
+/** A small icon and one line of text, as the rain line and the sentence. */
+@Composable
+private fun IconLine(@androidx.annotation.DrawableRes icon: Int, text: String, k: Float) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, dz(16, k), Palette.ink2P)
+        Spacer(GlanceModifier.width(6.dp))
+        Label(text, sz(14, k), Palette.ink2P)
+    }
+}
+
 @Composable
 private fun ConditionRowB(weather: WeatherState, second: ColorProvider, k: Float) {
     Row(verticalAlignment = Alignment.CenterVertically) {
