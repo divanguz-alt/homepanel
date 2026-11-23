@@ -32,6 +32,22 @@ class HourSlotsTest {
         assertEquals(2, hourSlots(hours, at(20) + 1, 2).size) // 21h and 23h; the forecast ends before 1h
     }
 
+    @Test fun rainBarsCoverTheNextHour() {
+        val q = 15 * 60_000L
+        val now = at(12) + 5 * 60_000L
+        val ends = (1..8).map { at(12) + it * q }
+        val wet = hr.divanguz.homepanel.ha.RainNowcast(fetchedAt = now, quarterEnds = ends, quarterMm = listOf(2.0, 0.5, 0.0, 0.05, 1.0, 0.0, 0.0, 0.0))
+        val bars = rainBars(wet, now)!!
+        assertEquals(4, bars.size)
+        assertEquals(1f, bars[0], 0.001f)
+        assertEquals(0.5f, bars[1], 0.001f)
+        assertEquals(0f, bars[2], 0.001f)
+        assertEquals(0f, bars[3], 0.001f) // 0.05 mm counts as dry
+        // Dry hour (the wet slot is beyond it), and stale data, give no bars.
+        assertNull(rainBars(wet.copy(quarterMm = listOf(0.0, 0.0, 0.0, 0.0, 3.0, 0.0, 0.0, 0.0)), now))
+        assertNull(rainBars(wet, now + 40 * 60_000L))
+    }
+
     @Test fun rainLineFollowsTheHours() {
         assertEquals("Rain from 16:00", hourlyRainText(hours, at(12) + 1, zone, Texts.EN))
         assertEquals("Rain until 19:00", hourlyRainText(hours, at(16) + 30 * 60_000L, zone, Texts.EN))

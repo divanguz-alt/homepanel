@@ -111,12 +111,14 @@ object OpenMeteo {
         val quarter = 15 * 60_000L
         val slots = times.zip(rain).filter { (t, _) -> t > now }
         val first = slots.indexOfFirst { it.second > WET_MM }
-        if (first < 0) return RainNowcast(fetchedAt = now)
+        if (first < 0) return RainNowcast(fetchedAt = now, quarterMm = slots.map { it.second }, quarterEnds = slots.map { it.first })
         val dryAfter = slots.drop(first).indexOfFirst { it.second <= WET_MM }
         return RainNowcast(
             startsAt = slots[first].first - quarter,
             endsAt = if (dryAfter < 0) null else slots[first + dryAfter].first - quarter,
             fetchedAt = now,
+            quarterMm = slots.map { it.second },
+            quarterEnds = slots.map { it.first },
         )
     }
 

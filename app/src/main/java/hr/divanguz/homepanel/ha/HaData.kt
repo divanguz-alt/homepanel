@@ -50,6 +50,9 @@ data class RainNowcast(
     val fetchedAt: Long = 0,
     /** The next hours from Open-Meteo's hourly forecast, fetched with the nowcast; the fallback. */
     val hours: List<HourForecast> = emptyList(),
+    /** The 15-minute totals (mm) not yet finished when fetched, and when each slot ends (epoch millis). */
+    val quarterMm: List<Double> = emptyList(),
+    val quarterEnds: List<Long> = emptyList(),
 )
 
 /** How many hours ahead each provider keeps: enough for three 3-hour steps and the 6-hour strip, with room to age. */

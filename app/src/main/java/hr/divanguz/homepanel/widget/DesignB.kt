@@ -142,16 +142,33 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
                     else tempW + block + daysOnlyW <= inner.value
                 }
             }
-            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
-                // Today's high and low sit in the empty corner above the temperature (the forecast
-                // column is taller than the digits, so this costs no height).
-                val range = weather?.todayRange
-                if (range != null) {
-                    Column {
-                        Label("${texts.today} $range", sz(13, look.conditions), second)
-                        Label(temperature, tempSp.sp, main)
+            // Top row: the small labels together, today's range on the left and "● AQI · place · source"
+            // on the right (the invisible settings shortcut).
+            val range = weather?.todayRange?.let { "${texts.today} $it" }
+            val aqi = weather?.aqiValue
+            val corner = corner((range?.length ?: 0) + 2)
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Box(modifier = GlanceModifier.defaultWeight()) { range?.let { Label(it, sz(13, look.conditions), second) } }
+                Box(
+                    modifier = GlanceModifier.padding(start = 8.dp).opens(settingsIntent(context)),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (aqi != null) {
+                            Dot(dz(7, look.conditions), aqiColor(aqi, weather.aqiEuropean))
+                            Spacer(GlanceModifier.width(6.dp))
+                            Label("AQI $aqi" + if (corner.isNotEmpty()) " " else "", sz(13, look.conditions), second)
+                        }
+                        if (corner.isNotEmpty()) Label((if (aqi != null) "· " else "") + corner, sz(13, look.conditions), Palette.ink3P)
+                        if (aqi == null && corner.isEmpty()) Spacer(GlanceModifier.width(48.dp).height(18.dp))
                     }
-                } else Label(temperature, tempSp.sp, main)
+                }
+            }
+            Spacer(GlanceModifier.height(4.dp))
+            // Middle: the numbers. Temperature and conditions, then the hours and the days, each set
+            // apart by a hairline in the list style.
+            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.Bottom) {
+                Label(temperature, tempSp.sp, main)
                 if (weather != null && conditionLines != null) {
                     Spacer(GlanceModifier.width(10.dp))
                     Column(modifier = GlanceModifier.padding(bottom = (tempSp * 0.16f).dp)) {
@@ -164,11 +181,12 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
                 if (fit != null && slots != null) {
                     // Three hours, then the days that still fit beside them.
                     val lift = (tempSp * 0.16f).dp
-                    Spacer(GlanceModifier.width(8.dp))
-                    if (style == Settings.HOURS_LIST) HourListB(slots, main, lift, chance)
+                    val list = style == Settings.HOURS_LIST
+                    if (list) Hairline(dz(ROW_H * 3, look.forecast), lift) else Spacer(GlanceModifier.width(8.dp))
+                    if (list) HourListB(slots, main, lift, chance)
                     else HourColumnsB(slots, main, second, lift, fit > 0)
                     if (fit > 0) {
-                        Spacer(GlanceModifier.width(if (style == Settings.HOURS_LIST) 10.dp else 0.dp))
+                        if (list) Hairline(dz(ROW_H * 3, look.forecast), lift)
                         Row(modifier = GlanceModifier.padding(bottom = lift), verticalAlignment = Alignment.Bottom) {
                             days.take(fit).forEach { ForecastDayB(it, main, second, locale, GlanceModifier.width(dz(DAY_W, look.forecast))) }
                         }
@@ -183,21 +201,19 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
                     }
                 }
             }
-            Spacer(GlanceModifier.height(6.dp))
-            // Lines under the temperature: the conditions (when not beside it) or the warning, then the
-            // sentence or the rain line. The first one shares its row with the AQI and city corner; the
-            // others use the full width.
+            // Bottom, only when there is something to say: the conditions (when not beside the
+            // temperature) or a warning, the sentence, and the rain line with the next hour's bars.
             val warning = weather?.warning
             val outlook = weather?.outlook?.takeIf { style == Settings.HOURS_SENTENCE }
-            val rain = weather?.rain?.takeIf { Settings.get(context).showRain && outlook == null }
-            val lines = mutableListOf<Pair<String, @Composable () -> Unit>>()
+            val showRain = Settings.get(context).showRain
+            val rain = weather?.rain?.takeIf { showRain && outlook == null }
+            val bars = weather?.rainBars?.takeIf { showRain }
+            val lines = mutableListOf<@Composable () -> Unit>()
             if (weather == null) {
                 val t = if (state.haConfigured) texts.waitingWeather else texts.tapToSetUp
-                lines += t to { Label(t, sz(14, look.conditions), second) }
+                lines += { Label(t, sz(14, look.conditions), second) }
             } else if (conditionLines == null || warning != null) {
-                // The warning chip is about ten characters wide.
-                val t = (if (conditionLines == null) weather.condition + "   " else "") + " ".repeat(if (warning != null) 10 else 0)
-                lines += t to {
+                lines += {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         if (conditionLines == null) ConditionRowB(weather, second, look.conditions)
                         if (conditionLines == null && warning != null) Spacer(GlanceModifier.width(8.dp))
@@ -205,31 +221,16 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
                     }
                 }
             }
-            if (outlook != null) lines += "   $outlook" to { IconLine(R.drawable.ic_wx_clock, outlook, look.conditions) }
-            if (rain != null) lines += "   $rain" to { IconLine(R.drawable.ic_wx_rain, rain, look.conditions) }
-
-            val aqi = weather?.aqiValue
-            val corner = corner((lines.firstOrNull()?.first?.length ?: 0) + 2)
-            Row(modifier = GlanceModifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Box(modifier = GlanceModifier.defaultWeight()) { lines.firstOrNull()?.second?.invoke() }
-                // The way into settings from the widget: as tall as the row, at least a finger wide.
-                Box(
-                    modifier = GlanceModifier.padding(start = 8.dp).opens(settingsIntent(context)),
-                    contentAlignment = Alignment.CenterEnd,
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        if (aqi != null) {
-                            Dot(dz(8, look.conditions), aqiColor(aqi, weather.aqiEuropean))
-                            Spacer(GlanceModifier.width(6.dp))
-                            Label("AQI $aqi" + if (corner.isNotEmpty()) " " else "", sz(14, look.conditions), second)
-                        }
-                        if (corner.isNotEmpty()) Label((if (aqi != null) "· " else "") + corner, sz(14, look.conditions), Palette.ink3P)
-                        if (aqi == null && corner.isEmpty()) Spacer(GlanceModifier.width(48.dp).height(20.dp))
-                    }
+            if (outlook != null) lines += { IconLine(R.drawable.ic_wx_clock, outlook, look.conditions) }
+            if (rain != null || bars != null) lines += {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (rain != null) IconLine(R.drawable.ic_wx_rain, rain, look.conditions)
+                    if (rain != null && bars != null) Spacer(GlanceModifier.width(14.dp))
+                    if (bars != null) RainBars(bars, look.conditions)
                 }
             }
-            lines.drop(1).forEach { (_, line) ->
-                Spacer(GlanceModifier.height(4.dp))
+            lines.forEachIndexed { i, line ->
+                Spacer(GlanceModifier.height(if (i == 0) 8.dp else 4.dp))
                 line()
             }
             HourlyStrip(weather, main, second)
@@ -265,7 +266,7 @@ private fun hoursFit(style: String, slots: List<HourState>?, temperature: String
     if (slots == null || (style != Settings.HOURS_LIST && style != Settings.HOURS_COLUMNS)) return null
     val scale = context.resources.configuration.fontScale
     val tempW = temperature.sumOf { if (it == '°') 0.38 else 0.56 }.toFloat() * tempSp * scale
-    val hoursW = if (style == Settings.HOURS_LIST) (LIST_W + if (chance) CHANCE_W else 0) * k * scale + 18 else 3 * HOUR_W * k * scale + 17
+    val hoursW = if (style == Settings.HOURS_LIST) (LIST_W + if (chance) CHANCE_W else 0) * k * scale + 34 else 3 * HOUR_W * k * scale + 17
     val maxDays = if (style == Settings.HOURS_LIST) 3 else 2
     return (minOf(days, maxDays) downTo 0).firstOrNull { n -> tempW + 8 + hoursW + n * DAY_W * k * scale <= inner.value }
 }
@@ -314,6 +315,36 @@ private fun HourColumnsB(slots: List<HourState>, main: ColorProvider, second: Co
 }
 
 /** Icon · condition · dot · AQI band dot · "AQI n". Nine children: within Glance's ten per row. */
+/** A vertical hairline between the conditions, the hours and the days, with room on both sides. */
+@Composable
+private fun Hairline(height: Dp, lift: Dp) {
+    // One child of the row (Glance drops children past ten in a row).
+    Box(modifier = GlanceModifier.padding(start = 8.dp, end = 8.dp, bottom = lift)) {
+        Box(modifier = GlanceModifier.width(1.dp).height(height).background(Palette.hairP)) {}
+    }
+}
+
+/** The next hour's rain as four 15-minute bars over "now" and "1h". */
+@Composable
+private fun RainBars(bars: List<Float>, k: Float) {
+    val full = 16 * k
+    Column {
+        Row(modifier = GlanceModifier.height(full.dp), verticalAlignment = Alignment.Bottom) {
+            bars.forEachIndexed { i, b ->
+                if (i > 0) Spacer(GlanceModifier.width(3.dp))
+                val h = if (b <= 0f) 2f else maxOf(3f, b * full)
+                Box(modifier = GlanceModifier.width(dz(10, k)).height(h.dp).background(if (b <= 0f) Palette.hairP else Palette.rainP)) {}
+            }
+        }
+        Spacer(GlanceModifier.height(2.dp))
+        Row(modifier = GlanceModifier.width(dz(40, k) + 9.dp)) {
+            Label(LocalTexts.current.nowWord, sz(10, k), Palette.ink3P)
+            Spacer(GlanceModifier.defaultWeight())
+            Label("1h", sz(10, k), Palette.ink3P)
+        }
+    }
+}
+
 /** A small icon and one line of text, as the rain line and the sentence. */
 @Composable
 private fun IconLine(@androidx.annotation.DrawableRes icon: Int, text: String, k: Float) {

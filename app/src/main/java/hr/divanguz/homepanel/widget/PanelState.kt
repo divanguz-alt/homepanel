@@ -50,6 +50,8 @@ data class WeatherState(
     val todayRange: String? = null,
     /** Hour the current temperature was measured ("7h"), when the provider gives one; null otherwise. */
     val observed: String? = null,
+    /** Rain in the next hour as four 15-minute bars, 0..1 each; null when none of them is wet. */
+    val rainBars: List<Float>? = null,
     val stale: Boolean,
 )
 
@@ -133,6 +135,7 @@ fun panelState(
             ha.rain?.takeIf { nowMillis - it.fetchedAt < 3 * 3_600_000L }?.hours.orEmpty()
         }
         val slots = hourSlots(hourly, nowMillis, hourStep)
+        val bars = ha.rain?.let { rainBars(it, nowMillis) }
         WeatherState(
             temperature = w.temperature?.let { "${it.roundToInt()}°" } ?: "–",
             conditionNow = texts.now(texts.condition(w.condition)),
@@ -144,8 +147,10 @@ fun panelState(
             source = w.source,
             // The rain line follows the hours on screen: the chosen provider's own when it has them
             // (otherwise "Rain from 12:45" from Open-Meteo could sit above a dry 13h from DHMZ).
-            rain = if (w.hours.isNotEmpty()) hourlyRainText(w.hours, nowMillis, zone, texts)
+            // With the next-hour bars on screen the line comes from the same 15-minute data, so the two agree.
+            rain = if (w.hours.isNotEmpty() && bars == null) hourlyRainText(w.hours, nowMillis, zone, texts)
                 else ha.rain?.let { rainText(it, nowMillis, zone, texts) },
+            rainBars = bars,
             // Prefer the stored day list so the line stays right after midnight; older caches lack it.
             tomorrow = (tomorrow?.condition ?: w.tomorrowCondition.takeIf { w.days.isEmpty() })?.let { c ->
                 val high = (tomorrow?.high ?: w.tomorrowHigh)?.let { ", ${it.roundToInt()}°" }.orEmpty()
@@ -229,6 +234,18 @@ private fun rainText(r: hr.divanguz.homepanel.ha.RainNowcast, now: Long, zone: Z
         end == null -> texts.rainHours
         else -> null
     }
+}
+
+/**
+ * The next hour as four 15-minute bars from the nowcast, starting with the slot we're in; null when it's
+ * older than 30 minutes or none of the four is wet. Heights grow with the square root of the amount, full
+ * at 2 mm in 15 minutes (a heavy shower), so light rain still shows.
+ */
+internal fun rainBars(r: hr.divanguz.homepanel.ha.RainNowcast, now: Long): List<Float>? {
+    if (now - r.fetchedAt > 30 * 60_000L) return null
+    val next = r.quarterEnds.zip(r.quarterMm).filter { (end, _) -> end > now }.take(4)
+    if (next.size < 4 || next.none { it.second > 0.1 }) return null
+    return next.map { (_, mm) -> if (mm <= 0.1) 0f else kotlin.math.sqrt(minOf(mm, 2.0) / 2.0).toFloat().coerceAtLeast(0.15f) }
 }
 
 /** The rain line from hourly steps, within the next [RAIN_AHEAD_H] hours; an hour counts by its condition (as its icon). */

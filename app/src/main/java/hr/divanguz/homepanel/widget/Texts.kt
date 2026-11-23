@@ -30,6 +30,8 @@ data class Texts(
     /** Car parked since: (day word or date, time). */
     val since: (String, String) -> String,
     val todayWord: String,
+    /** Start of the rain bars' axis. */
+    val nowWord: String,
     val yesterdayWord: String,
     val sinceDate: String,
     val setUpHa: String,
@@ -97,6 +99,7 @@ data class Texts(
             filters = listOf("All", "Calendar", "Tasks"),
             since = { d, t -> "Since $d $t" },
             todayWord = "today",
+            nowWord = "now",
             yesterdayWord = "yesterday",
             sinceDate = "d MMM",
             setUpHa = "Tap to set up Home Assistant",
@@ -154,6 +157,7 @@ data class Texts(
             filters = listOf("Sve", "Kalendar", "Zadaci"),
             since = { d, t -> "Od $d $t" },
             todayWord = "danas",
+            nowWord = "sad",
             yesterdayWord = "jučer",
             sinceDate = "d. MMM",
             setUpHa = "Dodirni za postavljanje Home Assistanta",
