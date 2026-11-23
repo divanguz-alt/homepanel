@@ -28,6 +28,14 @@ class DhmzTest {
         assertEquals(null, s[1].temp)
     }
 
+    @Test fun readsTheObservationHour() {
+        val xml = """<?xml version="1.0" encoding="UTF-8"?><Hrvatska><DatumTermin><Datum>23.11.2026</Datum><Termin>07</Termin></DatumTermin></Hrvatska>"""
+        val zone = java.time.ZoneId.of("Europe/Paris")
+        val at = Dhmz.observedAt(xml, zone)!!
+        assertEquals(java.time.LocalDateTime.of(2026, 11, 23, 7, 0), java.time.Instant.ofEpochMilli(at).atZone(zone).toLocalDateTime())
+        assertEquals(null, Dhmz.observedAt("<Hrvatska/>", zone))
+    }
+
     @Test fun parsesForecastForMatchingPlace() {
         val xml = """<?xml version='1.0' encoding='utf-8'?><sedamdana>
             <grad ime="BISTRA"><dan datum="20.10.2026." sat="12"><t_2m>30.0</t_2m><simbol>1</simbol><oborina>0.0</oborina></dan></grad>

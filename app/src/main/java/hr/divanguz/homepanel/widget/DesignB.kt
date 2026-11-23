@@ -98,7 +98,8 @@ internal fun WeatherZoneB(state: PanelState, context: Context) {
     val showDate = Settings.get(context).showDate
     val place = state.place?.takeIf { it.isNotBlank() }
     val date = if (showDate) titleCase(LocalDate.now().format(DateTimeFormatter.ofPattern("EEE d MMM", locale)), locale) else null
-    val source = if (showSource) weather!!.source else null
+    // The source carries the hour its current reading was taken: "DHMZ (7h)".
+    val source = if (showSource) weather!!.source + weather.observed?.let { " ($it)" }.orEmpty() else null
     // What fits beside the left text of the same line (~7.5dp a character, less the AQI): the date goes
     // first, then the source, then the place is shortened, so the rain line or sentence isn't squeezed.
     fun corner(leftChars: Int): String {

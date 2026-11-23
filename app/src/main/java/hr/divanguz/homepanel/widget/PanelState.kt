@@ -48,6 +48,8 @@ data class WeatherState(
     val outlook: String? = null,
     /** Today's high and low, "↑7° ↓2°", for design B's top-left corner; null when unknown. */
     val todayRange: String? = null,
+    /** Hour the current temperature was measured ("7h"), when the provider gives one; null otherwise. */
+    val observed: String? = null,
     val stale: Boolean,
 )
 
@@ -163,6 +165,9 @@ fun panelState(
             hours = hourly.filter { it.time > nowMillis - 3_600_000L / 2 }.take(6).map { hourState(it, zone) },
             slots = slots.map { hourState(it, zone, texts.hourLabel) },
             outlook = outlook(slots, hourly, texts, zone),
+            observed = w.observedAt?.takeIf { nowMillis - it < 6 * 3_600_000L }?.let {
+                texts.hourLabel(Instant.ofEpochMilli(it).atZone(zone).hour)
+            },
             todayRange = w.days.firstOrNull { it.date == today.toString() }?.let { d ->
                 if (d.high == null || d.low == null) null else "↑${d.high.roundToInt()}° ↓${d.low.roundToInt()}°"
             },

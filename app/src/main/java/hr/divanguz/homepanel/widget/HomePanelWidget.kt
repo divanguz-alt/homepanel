@@ -255,7 +255,7 @@ private fun WeatherZone(state: PanelState, context: Context) {
                     }
                     if (weather != null && Settings.get(context).showSource) {
                         Spacer(GlanceModifier.width(10.dp))
-                        Label("· " + LocalTexts.current.source(weather.source), sz(13, look.header), Palette.ink3P)
+                        Label("· " + LocalTexts.current.source(weather.source + weather.observed?.let { " ($it)" }.orEmpty()), sz(13, look.header), Palette.ink3P)
                     }
                 }
             }

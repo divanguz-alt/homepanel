@@ -38,7 +38,8 @@ object Dhmz {
     )
 
     fun fetch(context: Context, lat: Double, lon: Double): WeatherData {
-        val stations = stations(WeatherHttp.get(CURRENT_URL))
+        val xmlCurrent = WeatherHttp.get(CURRENT_URL)
+        val stations = stations(xmlCurrent)
             .map { it to distanceKm(lat, lon, it.lat, it.lon) }
             .filter { it.second <= MAX_STATION_KM }
             .sortedBy { it.second }
@@ -46,6 +47,7 @@ object Dhmz {
         val nearest = stations.firstOrNull { it.temp != null }
             ?: throw IOException("DHMZ: no station within ${MAX_STATION_KM.toInt()} km (outside Croatia?)")
 
+        val observedAt = runCatching { observedAt(xmlCurrent) }.getOrNull()
         val place = runCatching { forecastFile(context).reader().use { placeHours(it, stations.map { it.name.uppercase() }) } }
             .getOrDefault(emptyList())
         val days = days(place, LocalDate.now())
@@ -60,9 +62,18 @@ object Dhmz {
             warning = if (Settings.get(context).warnings) runCatching { DhmzWarnings.forPlace(context, lat, lon) }.getOrNull() else null,
             days = days,
             hours = hourForecasts(place, ZoneId.systemDefault()),
+            observedAt = observedAt,
             lat = lat,
             lon = lon,
         )
+    }
+
+    /** When the station readings were taken: the feed's `<Datum>` and `<Termin>` (local hour), epoch millis. */
+    internal fun observedAt(xml: String, zone: ZoneId = ZoneId.systemDefault()): Long? {
+        val date = Regex("<Datum>\\s*([0-9.]+?)\\.?\\s*</Datum>").find(xml)?.groupValues?.get(1) ?: return null
+        val hour = Regex("<Termin>\\s*(\\d+)\\s*</Termin>").find(xml)?.groupValues?.get(1)?.toIntOrNull() ?: return null
+        val day = runCatching { LocalDate.parse(date, java.time.format.DateTimeFormatter.ofPattern("d.M.yyyy")) }.getOrNull() ?: return null
+        return day.atTime(hour % 24, 0).atZone(zone).toInstant().toEpochMilli()
     }
 
     internal fun stations(xml: String): List<Station> {

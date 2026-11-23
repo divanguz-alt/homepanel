@@ -34,6 +34,8 @@ data class WeatherData(
     val warning: WeatherWarning? = null,
     /** The next hours from this provider (empty when it has none; the widget then uses Open-Meteo's). */
     val hours: List<HourForecast> = emptyList(),
+    /** When the current temperature was measured, if the provider says (DHMZ station readings). */
+    val observedAt: Long? = null,
 )
 
 /**
